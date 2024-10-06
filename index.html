@@ -126,7 +126,7 @@
           smellTime: smellTime,
           weatherInfo: weatherInfo
         };
-
+        console.log('数据提交:', JSON.stringify(data));
         fetch('https://script.google.com/macros/s/AKfycbxihyUPQ2mCoJ6kxEAWH8ua22BBCH_YZHEnjUSMiO8cEHlXZyeHjQWzoLLD0QsB44s2/exec', {
           method: 'POST',
           headers: {
