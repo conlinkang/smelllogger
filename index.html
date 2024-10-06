@@ -40,7 +40,7 @@
     <label for="smellTime">聞到的時間:</label>
     <input id="smellTime" type="datetime-local" name="smellTime" required>
     <br>
-    
+
     <div id="map"></div>
     <div id="weatherInfo">
       <p class="weather-description"></p>
@@ -48,15 +48,12 @@
       <p class="wind-speed"></p>
       <p class="wind-direction"></p>
     </div>
-    <!-- 添加 Google reCAPTCHA 验证 -->
-    <div class="g-recaptcha" data-sitekey="6Ld5fVkqAAAAAEQ9gKll0qZcA6KqMujxIPKXUcln"></div>
     
     <button type="submit" id="submitButton">提交</button>
     <p id="message"></p>
   </form>
 
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
-  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -72,12 +69,13 @@
       dateInput.value = localISOTime;
     }
 
-    let map, marker, currentPosition, arrow;
+    let map, marker, currentPosition;
     let selectedGrid = null;
     let isSubmitted = false;
     let userIP = '';
+    const arrowOverlays = []; // Use this array to track all current arrow overlays
 
-    function initMap() { 
+    function initMap() {
       const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心坐標
       map = new google.maps.Map(document.getElementById('map'), {
         zoom: 15,
@@ -111,7 +109,6 @@
           grid.addListener('click', function() {
             if (selectedGrid) {
               selectedGrid.setOptions({ fillColor: '#0000FF' });
-              if (arrow) arrow.setMap(null);
             }
             grid.setOptions({ fillColor: '#FF0000' });
 
@@ -139,11 +136,17 @@
       currentPosition = latLng;
     }
 
+    function removeExistingArrows() {
+      arrowOverlays.forEach(overlay => overlay.setMap(null)); // Remove each polyline from the map
+      arrowOverlays.length = 0; // Clear the array
+    }
+
     function drawArrow(latLng, windSpeed, windDirection) {
       const arrowDiv = document.createElement('div');
       arrowDiv.className = 'arrow';
       arrowDiv.style.transform = `rotate(${windDirection}deg)`;
       const overlay = new google.maps.OverlayView();
+
       overlay.onAdd = function() {
         const layer = this.getPanes().overlayLayer;
         layer.appendChild(arrowDiv);
@@ -154,7 +157,13 @@
         arrowDiv.style.left = `${position.x}px`;
         arrowDiv.style.top = `${position.y}px`;
       };
+      overlay.onRemove = function() {
+        arrowDiv.parentNode.removeChild(arrowDiv);
+      };
       overlay.setMap(map);
+      
+      arrowOverlays.push(overlay); // Keep track of the overlay
+
       return overlay;
     }
 
@@ -175,8 +184,8 @@
           weatherInfo.querySelector('.wind-speed').innerText = `風速: ${windSpeed} m/s`;
           weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;
 
-          if (arrow) arrow.setMap(null); 
-          arrow = drawArrow({ lat, lng: lon }, windSpeed, windDirection);
+          removeExistingArrows(); // Remove existing arrows before drawing a new one
+          drawArrow({ lat, lng: lon }, windSpeed, windDirection);
         })
         .catch(error => {
           console.error('取得天氣數據時出錯: ', error);
@@ -185,11 +194,6 @@
 
     function handleFormSubmit(event) {
       event.preventDefault();
-
-      if (!grecaptcha.getResponse()) {
-        alert('請填寫驗證碼以確認您不是機器人！');
-        return;
-      }
 
       if (isSubmitted) {
         alert('請勿重複提交同一份資料！');
@@ -219,7 +223,7 @@
 
         console.log('数据提交:', JSON.stringify(data));
 
-        fetch('https://script.google.com/macros/s/AKfycbyUj99gn97GCByUIjz03UcoXneInePsnctyv_Wpr0qTOWDk1Ms-x6Qy0wDKpXG8LiRX/exec', {
+        fetch('https://script.google.com/macros/s/AKfycbzXO0kGQ56_4Z8qzY-Tm-GPjNEjit-3q_niUxiE1nXEZ8kbED5oVjBVqw4u01kvn5hC/exec', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
