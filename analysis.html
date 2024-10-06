@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>臭味熱點分析地圖</title>
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        .legend {
+            background: white;
+            padding: 10px;
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .grid-square {
+            width: 15px;
+            height: 15px;
+            position: absolute;
+            background-color: rgba(255, 0, 0, 0.6);
+        }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI"></script>
+</head>
+<body>
+    <div class="controls">
+        <label for="viewMode">選擇視圖模式:</label>
+        <select id="viewMode">
+            <option value="day">每日</option>
+            <option value="month">每月</option>
+        </select>
+        <input type="date" id="datePicker">
+        <button onclick="loadData()">載入數據</button>
+        <input type="range" id="timeSlider" min="0" max="30" value="0" step="1" oninput="updateDateRange()">
+    </div>
+    <div id="map"></div>
+
+    <div class="legend">
+        <h3>如何解讀此地圖：</h3>
+        <ul>
+            <li><strong>顏色深淺：</strong>顏色越深表示臭味事件的報告頻率越高。</li>
+            <li><strong>透明度：</strong>越不透明的區域表示報告事件越近期，越透明的代表事件發生較久。</li>
+            <li><strong>箭頭方向：</strong>各個區域上的箭頭表示在相應時間段內的風向。</li>
+            <li>點擊色塊可以查看該區域的具體報告詳情，包括時間和頻率信息。</li>
+        </ul>
+    </div>
+
+    <script>
+        let map;
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: {lat: 23.713179185745247, lng: 120.50557988120599},
+                zoom: 12,
+            });
+
+            setTodayAsDefaultDate();
+        }
+
+        function setTodayAsDefaultDate() {
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            document.getElementById('datePicker').value = formattedDate;
+        }
+
+        function loadData() {
+            const viewMode = document.getElementById('viewMode').value;
+            const date = document.getElementById('datePicker').value;
+            const daysAgo = document.getElementById('timeSlider').value;
+
+            const url = `https://script.google.com/macros/s/AKfycbwD_e7U2ZwyjCYIVdTjErayFfUi15uYoz9e6TgW5EuwH_Kk3OYOEcDqcRLmjGdhGBLF/exec?viewMode=${viewMode}&date=${date}&daysAgo=${daysAgo}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    displayData(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
+        }
+
+        function updateDateRange() {
+            console.log("Date range slider position:", document.getElementById('timeSlider').value);
+        }
+
+        function displayData(data) {
+            const now = new Date();
+
+            data.forEach(entry => {
+                const reportDate = new Date(entry.date);
+                const daysSinceReport = (now - reportDate) / (1000 * 60 * 60 * 24);
+                const opacity = Math.max(1 - daysSinceReport / 30, 0);
+
+                const rectangle = new google.maps.Rectangle({
+                    strokeColor: '#FF0000',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 2,
+                    fillColor: getFillColor(entry.frequency),
+                    fillOpacity: opacity,
+                    map: map,
+                    bounds: {
+                        north: entry.lat + 0.005,
+                        south: entry.lat - 0.005,
+                        east: entry.lng + 0.005,
+                        west: entry.lng - 0.005
+                    }
+                });
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `<div>時間: ${reportDate.toLocaleString()}<br>頻率: ${entry.frequency}</div>`
+                });
+
+                google.maps.event.addListener(rectangle, 'click', function() {
+                    infoWindow.setPosition(new google.maps.LatLng(entry.lat, entry.lng));
+                    infoWindow.open(map);
+                });
+
+                drawArrow(entry.lat, entry.lng, entry.windDirection);
+            });
+        }
+
+        function getFillColor(frequency) {
+            const maxFrequency = 10;
+            const normalizedFrequency = Math.min(frequency / maxFrequency, 1);
+            return `rgba(255, 0, 0, ${normalizedFrequency})`;
+        }
+
+        function drawArrow(lat, lng, windDirection) {
+            const arrowDiv = document.createElement('div');
+            arrowDiv.style.width = '0';
+            arrowDiv.style.height = '0';
+            arrowDiv.style.borderLeft = '10px solid transparent';
+            arrowDiv.style.borderRight = '10px solid transparent';
+            arrowDiv.style.borderBottom = '20px solid #FF0000'; // 使用红色以增强可见性
+
+            // 旋转和定位
+            const angle = windDirection;
+            arrowDiv.style.transform = `rotate(${angle}deg)`;
+            arrowDiv.style.position = 'absolute';
+
+            const overlay = new google.maps.OverlayView();
+
+            overlay.onAdd = function() {
+                const layer = this.getPanes().overlayLayer;
+                layer.appendChild(arrowDiv);
+            };
+
+            overlay.draw = function() {
+                const projection = this.getProjection();
+                const position = projection.fromLatLngToDivPixel(new google.maps.LatLng(lat, lng));
+                arrowDiv.style.left = `${position.x}px`;
+                arrowDiv.style.top = `${position.y}px`;
+            };
+
+            overlay.setMap(map);
+        }
+
+        google.maps.event.addDomListener(window, 'load', initMap);
+    </script>
+</body>
+</html>
