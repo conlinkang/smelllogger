@@ -1,114 +1,114 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>臭味標記地圖</title>
-    <style>
-        #map {
-            height: 500px;
-            width: 100%;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>臭味標記地圖</title>
+  <style>
+    #map {
+      height: 500px;
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
-    <h3>標記臭味位置</h3>
-    <form id="smellForm">
-        <label for="smellLevel">臭味程度 (0-10):</label>
-        <input type="number" id="smellLevel" name="smellLevel" min="0" max="10" required>
-        <br>
-        <label for="smellTime">闻到的时间:</label>
-        <input type="datetime-local" id="smellTime" name="smellTime" required>
-        <br>
-        <button type="submit">提交</button>
-    </form>
-    <div id="map"></div>
+  <h3>標記臭味位置</h3>
+  <form id="smellForm">
+    <label for="smellLevel">臭味程度 (0-10):</label>
+    <input id="smellLevel" type="number" name="smellLevel" min="0" max="10" required>
+    <br>
+    <label for="smellTime">聞到的時間:</label>
+    <input id="smellTime" type="datetime-local" name="smellTime" required>
+    <br>
+    <button type="submit">提交</button>
+  </form>
+  <div id="map"></div>
 
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap"
-    async defer></script>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', (event) => {
-            setDefaultTime();
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      setDefaultTime();
+      document.getElementById('smellForm').addEventListener('submit', handleFormSubmit);
+    });
+
+    function setDefaultTime() {
+      const dateInput = document.getElementById('smellTime');
+      const now = new Date();
+      const localISOTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+      dateInput.value = localISOTime;
+    }
+
+    let map, marker, currentPosition;
+
+    function initMap() {
+      const geocoder = new google.maps.Geocoder();
+      const address = "建興農業科技股份有限公司 640雲林縣斗六市科工十二路11號";
+
+      geocoder.geocode({ 'address': address }, function(results, status) {
+        if (status === 'OK') {
+          const latLng = results[0].geometry.location;
+          map = new google.maps.Map(document.getElementById('map'), {
+            center: latLng,
+            zoom: 15
+          });
+
+          map.addListener('click', function(e) {
+            placeMarkerAndPanTo(e.latLng);
+          });
+        } else {
+          alert('Geocode was not successful for the following reason: ' + status);
+        }
+      });
+    }
+
+    function placeMarkerAndPanTo(latLng) {
+      if (marker) {
+        marker.setPosition(latLng);
+      } else {
+        marker = new google.maps.Marker({
+          position: latLng,
+          map: map
         });
+      }
+      map.panTo(latLng);
+      currentPosition = latLng;
+    }
 
-        function setDefaultTime() {
-            const dateInput = document.getElementById('smellTime');
-            const now = new Date();
-            const offset = now.getTimezoneOffset();
-            const localISOTime = new Date(now.getTime() - (offset * 60000)).toISOString().slice(0, 16);
-            dateInput.value = localISOTime;
-        }
+    function handleFormSubmit(event) {
+      event.preventDefault();
 
-        let map;
-        let marker;
-        let currentPosition;
+      const smellLevel = document.getElementById('smellLevel').value;
+      const smellTime = document.getElementById('smellTime').value;
 
-        function initMap() {
-            const geocoder = new google.maps.Geocoder();
-            const address = "建興農業科技股份有限公司 雲科廠 640雲林縣斗六市科工十二路11號";
-        
-            geocoder.geocode({'address': address}, function(results, status) {
-                if (status === 'OK') {
-                    const latLng = results[0].geometry.location;
-                    map = new google.maps.Map(document.getElementById('map'), {
-                        center: latLng,
-                        zoom: 15,
-                    });
+      if (currentPosition) {
+        const data = {
+          lat: currentPosition.lat(),
+          lng: currentPosition.lng(),
+          smellLevel: parseInt(smellLevel),
+          smellTime: smellTime
+        };
 
-                    map.addListener('click', function (e) {
-                        placeMarkerAndPanTo(e.latLng);
-                    });
-                } else {
-                    alert('Geocode was not successful for the following reason: ' + status);
-                }
-            });
-        }
-
-        function placeMarkerAndPanTo(latLng) {
-            if (marker) {
-                marker.setPosition(latLng);
-            } else {
-                marker = new google.maps.Marker({
-                    position: latLng,
-                    map: map,
-                });
-            }
-            map.panTo(latLng);
-            currentPosition = latLng;
-        }
-
-        document.getElementById('smellForm').addEventListener('submit', function (event) {
-            event.preventDefault();
-
-            const smellLevel = document.getElementById('smellLevel').value;
-            const smellTime = document.getElementById('smellTime').value;
-
-            if (currentPosition) {
-                const data = {
-                    lat: currentPosition.lat(),
-                    lng: currentPosition.lng(),
-                    smellLevel: parseInt(smellLevel),
-                    smellTime: smellTime
-                };
-
-                fetch('https://script.google.com/macros/s/AKfycbx4dvn74J7KBIYeehFHbsGTbE3CYdCl8XP9H0MOaueZ-7Xzo3SwEHImErp0rv46r7Wt/exec', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-    mode: 'no-cors'  // 添加这个模式
-})
-.then(() => {
-    console.log('Request completed with no-cors mode');
-    alert('臭味数据已提交！（请确认数据是否成功到达表格）');
-})
-.catch((error) => {
-    console.error("Error writing document: ", error);
-    alert("提交出错，请检查网络或服务器设置: " + error);
-});
-    </script>
-
+        fetch('https://script.google.com/macros/s/AKfycbx4dvn74J7KBIYeehFHbsGTbE3CYdCl8XP9H0MOaueZ-7Xzo3SwEHImErp0rv46r7Wt/exec', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+          mode: 'no-cors'  // 使用 no-cors 模式
+        })
+        .then(() => {
+          console.log('Request completed in no-cors mode');
+          alert('臭味数据已提交！（请确认数据是否成功到达表格）');
+        })
+        .catch((error) => {
+          console.error("Error writing document: ", error);
+          alert("提交出错，请检查网络或服务器设置：" + error);
+        });
+      } else {
+        alert('请先在地图上点击选择一个位置!');
+      }
+    }
+  </script>
 </body>
 </html>
