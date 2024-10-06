@@ -93,24 +93,21 @@
                 };
 
                 fetch('https://script.google.com/macros/s/AKfycbx4dvn74J7KBIYeehFHbsGTbE3CYdCl8XP9H0MOaueZ-7Xzo3SwEHImErp0rv46r7Wt/exec', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                })
-                .then(response => response.json())
-                .then(responseData => {
-                    console.log("Document successfully written!", responseData);
-                    alert('臭味数据已提交！');
-                })
-                .catch((error) => {
-                    console.error("Error writing document: ", error);
-                });
-            } else {
-                alert('请先在地图上点击选择一个位置!');
-            }
-        });
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+    mode: 'no-cors'  // 添加这个模式
+})
+.then(() => {
+    console.log('Request completed with no-cors mode');
+    alert('臭味数据已提交！（请确认数据是否成功到达表格）');
+})
+.catch((error) => {
+    console.error("Error writing document: ", error);
+    alert("提交出错，请检查网络或服务器设置: " + error);
+});
     </script>
 
 </body>
