@@ -14,8 +14,14 @@
 <body>
   <h3>標記臭味位置</h3>
   <form id="smellForm">
-    <label for="smellLevel">臭味程度 (0-10):</label>
-    <input id="smellLevel" type="number" name="smellLevel" min="0" max="10" required>
+    <div class="options">
+      <label>臭味程度:</label>
+      <label><input type="radio" name="smellLevel" value="1" required> 1</label>
+      <label><input type="radio" name="smellLevel" value="2" required> 2</label>
+      <label><input type="radio" name="smellLevel" value="3" required> 3</label>
+      <label><input type="radio" name="smellLevel" value="4" required> 4</label>
+      <label><input type="radio" name="smellLevel" value="5" required> 5</label>
+    </div>
     <br>
     <label for="smellTime">聞到的時間:</label>
     <input id="smellTime" type="datetime-local" name="smellTime" required>
@@ -47,26 +53,48 @@
 
     let map, marker, currentPosition;
 
-    function initMap() {
-      const geocoder = new google.maps.Geocoder();
-      const address = "建興農業科技股份有限公司 雲科廠";
-
-      geocoder.geocode({'address': address}, function(results, status) {
-        if (status === 'OK') {
-          const latLng = results[0].geometry.location;
-          map = new google.maps.Map(document.getElementById('map'), {
-            center: latLng,
-            zoom: 15
-          });
-
-          map.addListener('click', function(e) {
-            placeMarkerAndPanTo(e.latLng);
-            getWeather(e.latLng.lat(), e.latLng.lng());
-          });
-        } else {
-          alert('Geocode not successful: ' + status);
-        }
+    function initMap() { 
+      const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心坐標
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 15,
+        center: center
       });
+
+      const kmInLatitudeDegree = 1 / 110.574; // 每公里的緯度度數
+      const kmInLongitudeDegree = 1 / (111.320 * Math.cos(center.lat * Math.PI / 180)); // 每公里的經度度數
+
+      // 生成15x15的500m網格
+      const gridSize = 0.25; // 每格500m
+
+      for (let i = -7; i <= 7; i++) {
+        for (let j = -7; j <= 7; j++) {
+          const gridBounds = {
+            north: center.lat + (i + 1) * gridSize * kmInLatitudeDegree,
+            south: center.lat + i * gridSize * kmInLatitudeDegree,
+            east: center.lng + (j + 1) * gridSize * kmInLongitudeDegree,
+            west: center.lng + j * gridSize * kmInLongitudeDegree,
+          };
+
+          const grid = new google.maps.Rectangle({
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: '#FF0000',
+            fillOpacity: 0.1,
+            map: map,
+            bounds: gridBounds,
+          });
+
+          // 每个网格添加点击事件
+          grid.addListener('click', function() {
+            const centerLat = (gridBounds.north + gridBounds.south) / 2;
+            const centerLng = (gridBounds.east + gridBounds.west) / 2;
+            alert('已選擇網格的中心： [' + centerLat.toFixed(4) + ', ' + centerLng.toFixed(4) + ']');
+            placeMarkerAndPanTo({lat: centerLat, lng: centerLng});
+            getWeather(centerLat, centerLng);
+          });
+        }
+      }
     }
 
     function placeMarkerAndPanTo(latLng) {
@@ -120,14 +148,14 @@
 
       if (currentPosition) {
         const data = {
-          lat: currentPosition.lat(),
-          lng: currentPosition.lng(),
+          lat: currentPosition.lat,
+          lng: currentPosition.lng,
           smellLevel: parseInt(smellLevel),
           smellTime: smellTime,
           weatherInfo: weatherInfo
         };
         console.log('数据提交:', JSON.stringify(data));
-        fetch('https://script.google.com/macros/s/AKfycbxL-jxbmXL2VGIPE1QjB-Kt9YltwnsRJOhFC2J-ZS-jZlqUD_xaWCiOJJwvJRS5OvH4/exec', {
+        fetch('https://script.google.com/macros/s/AKfycbyUj99gn97GCByUIjz03UcoXneInePsnctyv_Wpr0qTOWDk1Ms-x6Qy0wDKpXG8LiRX/exec', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
