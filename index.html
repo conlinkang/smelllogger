@@ -23,6 +23,18 @@
       position: absolute;
       transform-origin: bottom;
     }
+    .analysis-button {
+      margin: 10px 0;
+      padding: 10px 15px;
+      background-color: #007BFF; /* Blue color */
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .analysis-button:hover {
+      background-color: #0056b3; /* Darker blue on hover */
+    }
   </style>
 </head>
 <body>
@@ -52,6 +64,9 @@
     <button type="submit" id="submitButton">提交</button>
     <p id="message"></p>
   </form>
+
+  <!-- Hot Spot Analysis button -->
+  <button class="analysis-button" onclick="redirectToAnalysis()">熱點分析</button>
 
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
 
@@ -163,8 +178,6 @@
       overlay.setMap(map);
       
       arrowOverlays.push(overlay); // Keep track of the overlay
-
-      return overlay;
     }
 
     function getWeather(lat, lon) {
@@ -223,7 +236,7 @@
 
         console.log('数据提交:', JSON.stringify(data));
 
-        fetch('https://script.google.com/macros/s/AKfycbzXO0kGQ56_4Z8qzY-Tm-GPjNEjit-3q_niUxiE1nXEZ8kbED5oVjBVqw4u01kvn5hC/exec', {
+        fetch('https://script.google.com/macros/s/AKfycbwD_e7U2ZwyjCYIVdTjErayFfUi15uYoz9e6TgW5EuwH_Kk3OYOEcDqcRLmjGdhGBLF/exec', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -253,6 +266,10 @@
         .catch(error => {
           console.error('取得IP時發生錯誤:', error);
         });
+    }
+
+    function redirectToAnalysis() {
+      window.location.href = 'analysis.html';
     }
   </script>
 </body>
