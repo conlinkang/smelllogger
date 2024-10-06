@@ -13,6 +13,105 @@
 </head>
 <body>
     <h3>標記臭味位置</h3>
+    <form id="smellForm">
+        <label for="smellLevel">臭味程度 (0-10):</label>
+        <input type="number" id="smellLevel" name="smellLevel" min="0" max="10" required>
+        <br>
+        <label for="smellTime">闻到的时间:</label>
+        <input type="datetime-local" id="smellTime" name="smellTime" required>
+        <br>
+        <button type="submit">提交</button>
+    </form>
+    <div id="map"></div>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap"
+    async defer></script>
     
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            setDefaultTime();
+        });
+
+        function setDefaultTime() {
+            const dateInput = document.getElementById('smellTime');
+            const now = new Date();
+            const offset = now.getTimezoneOffset();
+            const localISOTime = new Date(now.getTime() - (offset * 60000)).toISOString().slice(0, 16);
+            dateInput.value = localISOTime;
+        }
+
+        let map;
+        let marker;
+        let currentPosition;
+
+        function initMap() {
+            const geocoder = new google.maps.Geocoder();
+            const address = "建興農業科技股份有限公司 雲科廠 640雲林縣斗六市科工十二路11號";
+        
+            geocoder.geocode({'address': address}, function(results, status) {
+                if (status === 'OK') {
+                    const latLng = results[0].geometry.location;
+                    map = new google.maps.Map(document.getElementById('map'), {
+                        center: latLng,
+                        zoom: 15,
+                    });
+
+                    map.addListener('click', function (e) {
+                        placeMarkerAndPanTo(e.latLng);
+                    });
+                } else {
+                    alert('Geocode was not successful for the following reason: ' + status);
+                }
+            });
+        }
+
+        function placeMarkerAndPanTo(latLng) {
+            if (marker) {
+                marker.setPosition(latLng);
+            } else {
+                marker = new google.maps.Marker({
+                    position: latLng,
+                    map: map,
+                });
+            }
+            map.panTo(latLng);
+            currentPosition = latLng;
+        }
+
+        document.getElementById('smellForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const smellLevel = document.getElementById('smellLevel').value;
+            const smellTime = document.getElementById('smellTime').value;
+
+            if (currentPosition) {
+                const data = {
+                    lat: currentPosition.lat(),
+                    lng: currentPosition.lng(),
+                    smellLevel: parseInt(smellLevel),
+                    smellTime: smellTime
+                };
+
+                fetch('https://script.google.com/macros/s/AKfycbx4dvn74J7KBIYeehFHbsGTbE3CYdCl8XP9H0MOaueZ-7Xzo3SwEHImErp0rv46r7Wt/exec', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(responseData => {
+                    console.log("Document successfully written!", responseData);
+                    alert('臭味数据已提交！');
+                })
+                .catch((error) => {
+                    console.error("Error writing document: ", error);
+                });
+            } else {
+                alert('请先在地图上点击选择一个位置!');
+            }
+        });
+    </script>
+
 </body>
 </html>
