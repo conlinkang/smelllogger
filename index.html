@@ -22,8 +22,13 @@
     <br>
     <button type="submit">提交</button>
   </form>
+  <div id="weatherInfo">
+    <p class="weather-description"></p>
+    <p class="temperature"></p>
+    <p class="wind-speed"></p>
+    <p class="wind-direction"></p>
+  </div>
   <div id="map"></div>
-  <div id="weatherInfo"></div>
 
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
 
@@ -89,12 +94,10 @@
           const windSpeed = data.wind.speed;
           const windDirection = data.wind.deg;
           const weatherInfo = document.getElementById('weatherInfo');
-          weatherInfo.innerHTML = `
-            <p>氣象狀態: ${weather}</p>
-            <p>溫度: ${temperature}°C</p>
-            <p>風速: ${windSpeed} m/s</p>
-            <p>風向: ${windDirection}°</p>
-          `;
+          weatherInfo.querySelector('.weather-description').innerText = `氣象狀態: ${weather}`;
+          weatherInfo.querySelector('.temperature').innerText = `溫度: ${temperature}°C`;
+          weatherInfo.querySelector('.wind-speed').innerText = `風速: ${windSpeed} m/s`;
+          weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;
         })
         .catch(error => {
           console.error('Error fetching the weather data: ', error);
@@ -107,12 +110,21 @@
       const smellLevel = document.getElementById('smellLevel').value;
       const smellTime = document.getElementById('smellTime').value;
 
+      const weatherInfoDiv = document.getElementById('weatherInfo');
+      const weatherInfo = {
+        weather: weatherInfoDiv.querySelector('.weather-description').innerText,
+        temperature: parseFloat(weatherInfoDiv.querySelector('.temperature').innerText.split(' ')[1]),
+        windSpeed: parseFloat(weatherInfoDiv.querySelector('.wind-speed').innerText.split(' ')[1]),
+        windDirection: parseInt(weatherInfoDiv.querySelector('.wind-direction').innerText.split(' ')[1])
+      };
+
       if (currentPosition) {
         const data = {
           lat: currentPosition.lat(),
           lng: currentPosition.lng(),
           smellLevel: parseInt(smellLevel),
-          smellTime: smellTime
+          smellTime: smellTime,
+          weatherInfo: weatherInfo
         };
 
         fetch('https://script.google.com/macros/s/AKfycbxihyUPQ2mCoJ6kxEAWH8ua22BBCH_YZHEnjUSMiO8cEHlXZyeHjQWzoLLD0QsB44s2/exec', {
