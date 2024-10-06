@@ -9,6 +9,11 @@
       height: 500px;
       width: 100%;
     }
+    #message {
+      color: green;
+      font-weight: bold;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -20,21 +25,22 @@
       <label><input type="radio" name="smellLevel" value="2" required> 2</label>
       <label><input type="radio" name="smellLevel" value="3" required> 3</label>
       <label><input type="radio" name="smellLevel" value="4" required> 4</label>
-      <label><input type="radio" name="smellLevel" value="5" required> 5</label>
+      <label><input type="radio" name="smellLevel" value="5" required checked> 5</label>
     </div>
     <br>
     <label for="smellTime">聞到的時間:</label>
     <input id="smellTime" type="datetime-local" name="smellTime" required>
     <br>
-    <button type="submit">提交</button>
+    <div id="map"></div>
+    <div id="weatherInfo">
+      <p class="weather-description"></p>
+      <p class="temperature"></p>
+      <p class="wind-speed"></p>
+      <p class="wind-direction"></p>
+    </div>
+    <button type="submit" id="submitButton">提交</button>
+    <p id="message"></p>
   </form>
-  <div id="weatherInfo">
-    <p class="weather-description"></p>
-    <p class="temperature"></p>
-    <p class="wind-speed"></p>
-    <p class="wind-direction"></p>
-  </div>
-  <div id="map"></div>
 
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
 
@@ -52,6 +58,8 @@
     }
 
     let map, marker, currentPosition;
+    let selectedGrid = null;
+    let isSubmitted = false;
 
     function initMap() { 
       const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心坐標
@@ -76,20 +84,28 @@
           };
 
           const grid = new google.maps.Rectangle({
-            strokeColor: '#FF0000',
+            strokeColor: '#0000FF',
             strokeOpacity: 0.8,
             strokeWeight: 2,
-            fillColor: '#FF0000',
+            fillColor: '#0000FF',
             fillOpacity: 0.1,
             map: map,
             bounds: gridBounds,
           });
 
-          // 每个网格添加点击事件
+          // 每個網格添加點擊事件
           grid.addListener('click', function() {
+            // 恢复上一个选中的网格颜色
+            if (selectedGrid) {
+              selectedGrid.setOptions({ fillColor: '#0000FF' });
+            }
+            // 设置当前选中网格颜色为红色
+            grid.setOptions({ fillColor: '#FF0000' });
+
+            selectedGrid = grid;
+
             const centerLat = (gridBounds.north + gridBounds.south) / 2;
-            const centerLng = (gridBounds.east + gridBounds.west) / 2;
-            alert('已選擇網格的中心： [' + centerLat.toFixed(4) + ', ' + centerLng.toFixed(4) + ']');
+            const centerLng = (gridBounds.east + gridBounds.west) / 2;            
             placeMarkerAndPanTo({lat: centerLat, lng: centerLng});
             getWeather(centerLat, centerLng);
           });
@@ -128,14 +144,19 @@
           weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;
         })
         .catch(error => {
-          console.error('Error fetching the weather data: ', error);
+          console.error('取得天氣數據時出錯: ', error);
         });
     }
 
     function handleFormSubmit(event) {
       event.preventDefault();
 
-      const smellLevel = document.getElementById('smellLevel').value;
+      if (isSubmitted) {
+        alert('請勿重複提交同一份資料！');
+        return;
+      }
+
+      const smellLevel = document.querySelector('input[name="smellLevel"]:checked').value;
       const smellTime = document.getElementById('smellTime').value;
 
       const weatherInfoDiv = document.getElementById('weatherInfo');
@@ -164,13 +185,14 @@
           mode: 'no-cors'
         })
         .then(() => {
-          alert('臭味数据和气象信息已成功提交！');
+          isSubmitted = true;
+          document.getElementById('message').innerText = '感謝您的提交！';
         })
         .catch(() => {
-          alert('提交出错，请检查网络或服务器设置');
+          alert('提交出錯，請檢查網絡或伺服器設置');
         });
       } else {
-        alert('请先在地图上点击选择一个位置!');
+        alert('請先在地圖上點擊選擇一個位置!');
       }
     }
   </script>
