@@ -14,6 +14,15 @@
       font-weight: bold;
       margin-top: 10px;
     }
+    .arrow {
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-bottom: 10px solid red;
+      position: absolute;
+      transform-origin: bottom;
+    }
   </style>
 </head>
 <body>
@@ -31,6 +40,7 @@
     <label for="smellTime">聞到的時間:</label>
     <input id="smellTime" type="datetime-local" name="smellTime" required>
     <br>
+    
     <div id="map"></div>
     <div id="weatherInfo">
       <p class="weather-description"></p>
@@ -38,16 +48,21 @@
       <p class="wind-speed"></p>
       <p class="wind-direction"></p>
     </div>
+    <!-- 添加 Google reCAPTCHA 验证 -->
+    <div class="g-recaptcha" data-sitekey="6Ld5fVkqAAAAAEQ9gKll0qZcA6KqMujxIPKXUcln"></div>
+    
     <button type="submit" id="submitButton">提交</button>
     <p id="message"></p>
   </form>
 
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       setDefaultTime();
       document.getElementById('smellForm').addEventListener('submit', handleFormSubmit);
+      fetchUserIP();
     });
 
     function setDefaultTime() {
@@ -57,9 +72,10 @@
       dateInput.value = localISOTime;
     }
 
-    let map, marker, currentPosition;
+    let map, marker, currentPosition, arrow;
     let selectedGrid = null;
     let isSubmitted = false;
+    let userIP = '';
 
     function initMap() { 
       const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心坐標
@@ -68,11 +84,10 @@
         center: center
       });
 
-      const kmInLatitudeDegree = 1 / 110.574; // 每公里的緯度度數
-      const kmInLongitudeDegree = 1 / (111.320 * Math.cos(center.lat * Math.PI / 180)); // 每公里的經度度數
+      const kmInLatitudeDegree = 1 / 110.574; 
+      const kmInLongitudeDegree = 1 / (111.320 * Math.cos(center.lat * Math.PI / 180)); 
 
-      // 生成15x15的500m網格
-      const gridSize = 0.25; // 每格500m
+      const gridSize = 0.25; 
 
       for (let i = -7; i <= 7; i++) {
         for (let j = -7; j <= 7; j++) {
@@ -93,13 +108,11 @@
             bounds: gridBounds,
           });
 
-          // 每個網格添加點擊事件
           grid.addListener('click', function() {
-            // 恢复上一个选中的网格颜色
             if (selectedGrid) {
               selectedGrid.setOptions({ fillColor: '#0000FF' });
+              if (arrow) arrow.setMap(null);
             }
-            // 设置当前选中网格颜色为红色
             grid.setOptions({ fillColor: '#FF0000' });
 
             selectedGrid = grid;
@@ -126,6 +139,25 @@
       currentPosition = latLng;
     }
 
+    function drawArrow(latLng, windSpeed, windDirection) {
+      const arrowDiv = document.createElement('div');
+      arrowDiv.className = 'arrow';
+      arrowDiv.style.transform = `rotate(${windDirection}deg)`;
+      const overlay = new google.maps.OverlayView();
+      overlay.onAdd = function() {
+        const layer = this.getPanes().overlayLayer;
+        layer.appendChild(arrowDiv);
+      };
+      overlay.draw = function() {
+        const projection = this.getProjection();
+        const position = projection.fromLatLngToDivPixel(latLng);
+        arrowDiv.style.left = `${position.x}px`;
+        arrowDiv.style.top = `${position.y}px`;
+      };
+      overlay.setMap(map);
+      return overlay;
+    }
+
     function getWeather(lat, lon) {
       const apiKey = 'b142facd0784f0961a51dc355befed53';
       const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
@@ -142,6 +174,9 @@
           weatherInfo.querySelector('.temperature').innerText = `溫度: ${temperature}°C`;
           weatherInfo.querySelector('.wind-speed').innerText = `風速: ${windSpeed} m/s`;
           weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;
+
+          if (arrow) arrow.setMap(null); 
+          arrow = drawArrow({ lat, lng: lon }, windSpeed, windDirection);
         })
         .catch(error => {
           console.error('取得天氣數據時出錯: ', error);
@@ -150,6 +185,11 @@
 
     function handleFormSubmit(event) {
       event.preventDefault();
+
+      if (!grecaptcha.getResponse()) {
+        alert('請填寫驗證碼以確認您不是機器人！');
+        return;
+      }
 
       if (isSubmitted) {
         alert('請勿重複提交同一份資料！');
@@ -173,9 +213,12 @@
           lng: currentPosition.lng,
           smellLevel: parseInt(smellLevel),
           smellTime: smellTime,
-          weatherInfo: weatherInfo
+          weatherInfo: weatherInfo,
+          userIP: userIP
         };
+
         console.log('数据提交:', JSON.stringify(data));
+
         fetch('https://script.google.com/macros/s/AKfycbyUj99gn97GCByUIjz03UcoXneInePsnctyv_Wpr0qTOWDk1Ms-x6Qy0wDKpXG8LiRX/exec', {
           method: 'POST',
           headers: {
@@ -194,6 +237,18 @@
       } else {
         alert('請先在地圖上點擊選擇一個位置!');
       }
+    }
+
+    function fetchUserIP() {
+      fetch('https://api.ipify.org?format=json')
+        .then(response => response.json())
+        .then(data => {
+          userIP = data.ip;
+          console.log('User IP:', userIP);
+        })
+        .catch(error => {
+          console.error('取得IP時發生錯誤:', error);
+        });
     }
   </script>
 </body>
