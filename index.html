@@ -35,7 +35,7 @@
     function setDefaultTime() {
       const dateInput = document.getElementById('smellTime');
       const now = new Date();
-      const localISOTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+      const localISOTime = new Date(now - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
       dateInput.value = localISOTime;
     }
 
@@ -45,7 +45,7 @@
       const geocoder = new google.maps.Geocoder();
       const address = "建興農業科技股份有限公司 640雲林縣斗六市科工十二路11號";
 
-      geocoder.geocode({ 'address': address }, function(results, status) {
+      geocoder.geocode({'address': address}, function(results, status) {
         if (status === 'OK') {
           const latLng = results[0].geometry.location;
           map = new google.maps.Map(document.getElementById('map'), {
@@ -57,7 +57,7 @@
             placeMarkerAndPanTo(e.latLng);
           });
         } else {
-          alert('Geocode was not successful for the following reason: ' + status);
+          alert('Geocode not successful: ' + status);
         }
       });
     }
@@ -89,21 +89,27 @@
           smellTime: smellTime
         };
 
-        fetch('https://script.google.com/macros/s/AKfycbxihyUPQ2mCoJ6kxEAWH8ua22BBCH_YZHEnjUSMiO8cEHlXZyeHjQWzoLLD0QsB44s2/exec', {
+        fetch('https://script.google.com/macros/s/AKfycbx4dvn74J7KBIYeehFHbsGTbE3CYdCl8XP9H0MOaueZ-7Xzo3SwEHImErp0rv46r7Wt/exec', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(data),
-          mode: 'no-cors'  // 使用 no-cors 模式
+          mode: 'cors'
         })
-        .then(() => {
-          console.log('Request completed in no-cors mode');
-          alert('臭味数据已提交！（请确认数据是否成功到达表格）');
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok ' + response.statusText);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Success:', data);
+          alert('臭味数据已成功提交！');
         })
         .catch((error) => {
-          console.error("Error writing document: ", error);
-          alert("提交出错，请检查网络或服务器设置：" + error);
+          console.error('Error writing document:', error);
+          alert('提交出错，请检查网络或服务器设置：' + error);
         });
       } else {
         alert('请先在地图上点击选择一个位置!');
