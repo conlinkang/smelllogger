@@ -21,7 +21,7 @@
       height: 0;
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
-      border-bottom: 20px solid red;
+      border-bottom: 20px solid;
       position: absolute;
     }
     #loading {
@@ -87,6 +87,7 @@
       font-weight: bold;
     }
   </style>
+
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <!-- jQuery UI -->
@@ -126,7 +127,7 @@
     <div class="legend-scale">
       <span class="high-intensity"></span> 高強度
     </div>
-    <div> <br> <strong>風向說明:</strong> <br> 紅色箭頭表示當地的風向，箭頭指向風的去向。 <br> </div>
+    <div> <br> <strong>風向說明:</strong> <br> 紅色箭頭表示當地的風向。<br>箭頭顏色代表回報時間: 藍(最舊)->紅(最新)。 <br> </div>
   </div>
   <div id="map"></div>
   <div id="loading">分析中...</div>
@@ -197,36 +198,50 @@
       clearArrows(); // Clear existing arrow overlays
       recordDates = []; // Reset record dates
 
-      data.records.forEach(record => {
+      const filteredRecords = data.records.filter(record => {
         const recordDate = new Date(record.聞到的時間);
         const selectedDate = new Date(filterDate);
-
         recordDates.push(recordDate.toISOString().split('T')[0]);
+        return record.臭味程度 >= minLevel && recordDate.toDateString() === selectedDate.toDateString();
+      });
 
-        // Compare only the date part
-        if (record.臭味程度 >= minLevel && recordDate.toDateString() === selectedDate.toDateString()) {
-          // Add heatmap data points
-          dataPoints.push({
-            location: new google.maps.LatLng(record.緯度, record.經度),
-            weight: record.臭味程度
-          });
+      // Sort records by time to determine the color gradient
+      filteredRecords.sort((a, b) => new Date(a.聞到的時間) - new Date(b.聞到的時間));
 
-          // Add wind direction arrow
-          drawArrow(record.緯度, record.經度, record.風向);
-        }
+      // Display data with color gradient to reflect reporting sequence
+      filteredRecords.forEach((record, index) => {
+        const color = interpolateColor([0, 0, 255], [255, 0, 0], index / (filteredRecords.length - 1));
+
+        // Add heatmap data points
+        dataPoints.push({
+          location: new google.maps.LatLng(record.緯度, record.經度),
+          weight: record.臭味程度
+        });
+
+        // Add wind direction arrow with color gradient based on report order
+        drawArrow(record.緯度, record.經度, record.風向, color);
       });
 
       heatmap.setData(dataPoints);
       $('#filterDate').datepicker('refresh'); // Refresh datepicker to update highlighted dates
     }
 
-    function drawArrow(lat, lng, windDirection) {
-      // To point in the direction wind is blowing to, adjust the windDirection
+    function interpolateColor(color1, color2, factor) {
+      const result = color1.slice();
+      for (let i = 0; i < 3; i++) {
+        result[i] = Math.round(result[i] + factor * (color2[i] - color1[i]));
+      }
+      return `rgb(${result.join(',')})`;
+    }
+
+    function drawArrow(lat, lng, windDirection, color) {
+      // Adjust windDirection to show the direction wind is blowing to
       const adjustedDirection = (windDirection + 180) % 360;
 
       const arrowDiv = document.createElement('div');
       arrowDiv.className = 'arrow';
       arrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
+      arrowDiv.style.borderBottomColor = color;
 
       const overlay = new google.maps.OverlayView();
       overlay.onAdd = function() {
