@@ -62,13 +62,11 @@
       <p class="wind-direction"></p>
     </div>
     
-    <button  class="analysis-button" type="submit" id="submitButton">送出</button>    
+    <button class="analysis-button" type="submit" id="submitButton">送出</button>    
     <p id="message"></p>
   </form>
   <!-- Hot Spot Analysis button -->
   <button class="analysis-button" onclick="redirectToAnalysis()">熱點分析</button>
-
-  
 
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
 
@@ -226,6 +224,9 @@
         windDirection: parseInt(weatherInfoDiv.querySelector('.wind-direction').innerText.split(' ')[1])
       };
 
+      const submitButton = document.getElementById('submitButton');
+      submitButton.innerText = '送出中...';
+
       if (currentPosition) {
         const data = {
           lat: currentPosition.lat,
@@ -248,12 +249,15 @@
         })
         .then(() => {
           isSubmitted = true;
+          submitButton.innerText = '送出';
           document.getElementById('message').innerText = '感謝您的送出！';
         })
         .catch(() => {
+          submitButton.innerText = '送出';
           alert('送出出錯，請檢查網絡或伺服器設置');
         });
       } else {
+        submitButton.innerText = '送出';
         alert('請先在地圖上點擊選擇一個位置!');
       }
     }
