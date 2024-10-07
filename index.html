@@ -39,6 +39,8 @@
 </head>
 <body>
   <h3>標記臭味位置</h3>
+  <!-- Hot Spot Analysis button -->
+  <button class="analysis-button" onclick="redirectToAnalysis()">熱點分析</button>
   <form id="smellForm">
     <div class="options">
       <label>臭味程度:</label>
@@ -65,8 +67,7 @@
     <p id="message"></p>
   </form>
 
-  <!-- Hot Spot Analysis button -->
-  <button class="analysis-button" onclick="redirectToAnalysis()">熱點分析</button>
+  
 
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
 
