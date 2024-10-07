@@ -48,11 +48,11 @@
   <form id="smellForm">
     <div class="options">
       <label>臭味程度:</label>
-      <label><input type="radio" name="smellLevel" value="1" required> 1(略有臭味)</label>
-      <label><input type="radio" name="smellLevel" value="2" required> 2(輕微臭味)</label>
-      <label><input type="radio" name="smellLevel" value="3" required> 3(明顯臭味)</label>
-      <label><input type="radio" name="smellLevel" value="4" required checked> 4(強烈刺鼻臭味)</label>
-      <label><input type="radio" name="smellLevel" value="5" required> 5(令人噁心窒息)</label>
+      <label><input type="radio" name="smellLevel" value="1" required> 1(無味道)</label>
+      <label><input type="radio" name="smellLevel" value="2" required> 2(有味道)</label>
+      <label><input type="radio" name="smellLevel" value="3" required> 3(有味道可短暫待在室外)</label>
+      <label><input type="radio" name="smellLevel" value="4" required checked> 4(有味道無法待在室外)</label>
+      <label><input type="radio" name="smellLevel" value="5" required> 5(有味道且連室內都有味道)</label>
     </div>
     <br>
     <label for="smellTime">聞到的時間:</label>
@@ -75,7 +75,6 @@
 
   <footer>網頁製作人: 康嘉麟</footer>
 
-  <!-- 製作人資訊: 康嘉麟 -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
 
   <script>
@@ -165,9 +164,12 @@
     }
 
     function drawArrow(latLng, windSpeed, windDirection) {
+      // To point in the direction wind is blowing to, adjust the windDirection
+      const adjustedDirection = (windDirection + 180) % 360;
+
       const arrowDiv = document.createElement('div');
       arrowDiv.className = 'arrow';
-      arrowDiv.style.transform = `rotate(${windDirection}deg)`;
+      arrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
       const overlay = new google.maps.OverlayView();
 
       overlay.onAdd = function() {
