@@ -63,7 +63,7 @@
       <p class="wind-direction"></p>
     </div>
     
-    <button type="submit" id="submitButton">提交</button>
+    <button  class="analysis-button" type="submit" id="submitButton">送出</button>
     <p id="message"></p>
   </form>
 
@@ -210,7 +210,7 @@
       event.preventDefault();
 
       if (isSubmitted) {
-        alert('請勿重複提交同一份資料！');
+        alert('請勿重複送出同一份資料！');
         return;
       }
 
@@ -235,7 +235,7 @@
           userIP: userIP
         };
 
-        console.log('数据提交:', JSON.stringify(data));
+        console.log('数据送出:', JSON.stringify(data));
 
         fetch('https://script.google.com/macros/s/AKfycbwD_e7U2ZwyjCYIVdTjErayFfUi15uYoz9e6TgW5EuwH_Kk3OYOEcDqcRLmjGdhGBLF/exec', {
           method: 'POST',
@@ -247,10 +247,10 @@
         })
         .then(() => {
           isSubmitted = true;
-          document.getElementById('message').innerText = '感謝您的提交！';
+          document.getElementById('message').innerText = '感謝您的送出！';
         })
         .catch(() => {
-          alert('提交出錯，請檢查網絡或伺服器設置');
+          alert('送出出錯，請檢查網絡或伺服器設置');
         });
       } else {
         alert('請先在地圖上點擊選擇一個位置!');
