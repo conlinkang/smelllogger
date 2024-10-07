@@ -42,15 +42,15 @@
   <form id="smellForm">
     <div class="options">
       <label>臭味程度:</label>
-      <label><input type="radio" name="smellLevel" value="1" required> 1</label>
-      <label><input type="radio" name="smellLevel" value="2" required> 2</label>
-      <label><input type="radio" name="smellLevel" value="3" required> 3</label>
-      <label><input type="radio" name="smellLevel" value="4" required> 4</label>
-      <label><input type="radio" name="smellLevel" value="5" required checked> 5</label>
+      <label><input type="radio" name="smellLevel" value="1" required> 1(無味道)</label>
+      <label><input type="radio" name="smellLevel" value="2" required> 2(有味道)</label>
+      <label><input type="radio" name="smellLevel" value="3" required> 3(有味道可短暫待在室外)</label>
+      <label><input type="radio" name="smellLevel" value="4" required> 4(有味道無法待在室外)</label>
+      <label><input type="radio" name="smellLevel" value="5" required checked> 5(有味道且連室內都有味道)</label>
     </div>
     <br>
     <label for="smellTime">聞到的時間:</label>
-    <input id="smellTime" type="datetime-local" name="smellTime" required>
+    <input id="smellTime" type="datetime-local" name="smellTime" required disabled>
     <br>
 
     <div id="map"></div>
