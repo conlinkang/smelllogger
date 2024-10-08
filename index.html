@@ -9,8 +9,11 @@
       height: 500px;
       width: 100%;
     }
+    #info {
+      margin-bottom: 10px;
+    }
     #message {
-      color: green;
+      color: red;
       font-weight: bold;
       margin-top: 10px;
     }
@@ -44,6 +47,17 @@
 </head>
 <body>
   <h3>標記臭味位置</h3>
+  <div id="info">
+    <p id="userLocation"></p>
+    <p id="address"></p>
+    <p id="locationMessage"></p>
+    <div id="weatherInfo">
+      <p class="weather-description"></p>
+      <p class="temperature"></p>
+      <p class="wind-speed"></p>
+      <p class="wind-direction"></p>
+    </div>
+  </div>
   
   <form id="smellForm">
     <div class="options">
@@ -58,17 +72,12 @@
     <label for="smellTime">聞到的時間:</label>
     <input id="smellTime" type="datetime-local" name="smellTime" required disabled>
     <br>
-
-    <div id="map"></div>
-    <div id="weatherInfo">
-      <p class="weather-description"></p>
-      <p class="temperature"></p>
-      <p class="wind-speed"></p>
-      <p class="wind-direction"></p>
-    </div>
-    
     <button class="analysis-button" type="submit" id="submitButton">送出</button>    
     <p id="message"></p>
+
+    <div id="map"></div>
+    
+    
   </form>
   <!-- Hot Spot Analysis button -->
   <button class="analysis-button" onclick="redirectToAnalysis()">熱點分析</button>
@@ -95,10 +104,11 @@
     let selectedGrid = null;
     let isSubmitted = false;
     let userIP = '';
-    const arrowOverlays = []; // Use this array to track all current arrow overlays
+    const arrowOverlays = [];
+    const gridCells = [];
+    const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心座標
 
     function initMap() {
-      const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心坐標
       map = new google.maps.Map(document.getElementById('map'), {
         zoom: 15,
         center: center
@@ -106,7 +116,6 @@
 
       const kmInLatitudeDegree = 1 / 110.574; 
       const kmInLongitudeDegree = 1 / (111.320 * Math.cos(center.lat * Math.PI / 180)); 
-
       const gridSize = 0.25; 
 
       for (let i = -7; i <= 7; i++) {
@@ -128,21 +137,29 @@
             bounds: gridBounds,
           });
 
-          grid.addListener('click', function() {
-            if (selectedGrid) {
-              selectedGrid.setOptions({ fillColor: '#0000FF' });
-            }
-            grid.setOptions({ fillColor: '#FF0000' });
-
-            selectedGrid = grid;
-
-            const centerLat = (gridBounds.north + gridBounds.south) / 2;
-            const centerLng = (gridBounds.east + gridBounds.west) / 2;            
-            placeMarkerAndPanTo({lat: centerLat, lng: centerLng});
-            getWeather(centerLat, centerLng);
+          google.maps.event.addListener(grid, 'click', function() {
+            selectGrid(grid, gridBounds);
           });
+
+          gridCells.push({grid: grid, bounds: gridBounds});
         }
       }
+
+      getLocation();
+    }
+
+    function selectGrid(grid, bounds) {
+      if (selectedGrid) {
+        selectedGrid.setOptions({ fillColor: '#0000FF' });
+      }
+      grid.setOptions({ fillColor: '#FF0000' });
+
+      selectedGrid = grid;
+
+      const centerLat = (bounds.north + bounds.south) / 2;
+      const centerLng = (bounds.east + bounds.west) / 2;            
+      placeMarkerAndPanTo({lat: centerLat, lng: centerLng});
+      getWeather(centerLat, centerLng);
     }
 
     function placeMarkerAndPanTo(latLng) {
@@ -159,12 +176,11 @@
     }
 
     function removeExistingArrows() {
-      arrowOverlays.forEach(overlay => overlay.setMap(null)); // Remove each polyline from the map
-      arrowOverlays.length = 0; // Clear the array
+      arrowOverlays.forEach(overlay => overlay.setMap(null)); 
+      arrowOverlays.length = 0; 
     }
 
     function drawArrow(latLng, windSpeed, windDirection) {
-      // To point in the direction wind is blowing to, adjust the windDirection
       const adjustedDirection = (windDirection + 180) % 360;
 
       const arrowDiv = document.createElement('div');
@@ -187,7 +203,7 @@
       };
       overlay.setMap(map);
       
-      arrowOverlays.push(overlay); // Keep track of the overlay
+      arrowOverlays.push(overlay); 
     }
 
     function getWeather(lat, lon) {
@@ -207,11 +223,11 @@
           weatherInfo.querySelector('.wind-speed').innerText = `風速: ${windSpeed} m/s`;
           weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;
 
-          removeExistingArrows(); // Remove existing arrows before drawing a new one
+          removeExistingArrows(); 
           drawArrow({ lat, lng: lon }, windSpeed, windDirection);
         })
         .catch(error => {
-          console.error('取得天氣數據時出錯: ', error);
+          console.error('取得天氣資料時出錯: ', error);
         });
     }
 
@@ -219,7 +235,7 @@
       event.preventDefault();
 
       if (isSubmitted) {
-        alert('請勿重複送出同一份資料！');
+        alert('請勿重複送出同一筆資料！');
         return;
       }
 
@@ -247,7 +263,7 @@
           userIP: userIP
         };
 
-        console.log('数据送出:', JSON.stringify(data));
+        console.log('資料已送出:', JSON.stringify(data));
 
         fetch('https://script.google.com/macros/s/AKfycbwD_e7U2ZwyjCYIVdTjErayFfUi15uYoz9e6TgW5EuwH_Kk3OYOEcDqcRLmjGdhGBLF/exec', {
           method: 'POST',
@@ -264,11 +280,11 @@
         })
         .catch(() => {
           submitButton.innerText = '送出';
-          alert('送出出錯，請檢查網絡或伺服器設置');
+          alert('送出發生錯誤，請檢查網路或伺服器設定');
         });
       } else {
         submitButton.innerText = '送出';
-        alert('請先在地圖上點擊選擇一個位置!');
+        alert('請先在地圖上點選一個位置!');
       }
     }
 
@@ -286,6 +302,68 @@
 
     function redirectToAnalysis() {
       window.location.href = 'analysis.html';
+    }
+
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showPosition, showError);
+      } else {
+        document.getElementById('locationMessage').innerText = "目前不支援定位服務";
+      }
+    }
+
+    function showPosition(position) {
+      const userLat = position.coords.latitude;
+      const userLng = position.coords.longitude;
+      document.getElementById('userLocation').innerText = `您所在的位置: (${userLat.toFixed(5)}, ${userLng.toFixed(5)})`;
+
+      let withinRange = false;
+      for (const {grid, bounds} of gridCells) {
+        if (userLat >= bounds.south && userLat <= bounds.north && userLng >= bounds.west && userLng <= bounds.east) {
+          withinRange = true;
+          selectGrid(grid, bounds);
+          getAddress(userLat, userLng);
+          break;
+        }
+      }
+      
+      if (!withinRange) {
+        document.getElementById('locationMessage').innerText = "目前不在有效範圍內，煩請手動標記。";
+        document.getElementById('address').innerText = "";
+      }
+    }
+
+    function showError(error) {
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          document.getElementById('locationMessage').innerText = "使用者拒絕定位請求，煩請手動標記。";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          document.getElementById('locationMessage').innerText = "位置訊息不可用。";
+          break;
+        case error.TIMEOUT:
+          document.getElementById('locationMessage').innerText = "請求使用者地理位置超時。";
+          break;
+        case error.UNKNOWN_ERROR:
+          document.getElementById('locationMessage').innerText = "未知錯誤。";
+          break;
+      }
+    }
+
+    function getAddress(lat, lng) {
+      const geocoder = new google.maps.Geocoder();
+      const latLng = new google.maps.LatLng(lat, lng);
+      geocoder.geocode({'location': latLng}, function(results, status) {
+        if (status === 'OK') {
+          if (results[0]) {
+            document.getElementById('address').innerText = `地址: ${results[0].formatted_address}`;
+          } else {
+            document.getElementById('address').innerText = "沒有找到相應的地址";
+          }
+        } else {
+          document.getElementById('address').innerText = `反向地理編譯失敗: ${status}`;
+        }
+      });
     }
   </script>
 </body>
