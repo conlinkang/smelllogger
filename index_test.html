@@ -72,11 +72,12 @@
     <label for="smellTime">聞到的時間:</label>
     <input id="smellTime" type="datetime-local" name="smellTime" required disabled>
     <br>
+    <button class="analysis-button" type="submit" id="submitButton">送出</button>    
+    <p id="message"></p>
 
     <div id="map"></div>
     
-    <button class="analysis-button" type="submit" id="submitButton">送出</button>    
-    <p id="message"></p>
+    
   </form>
   <!-- Hot Spot Analysis button -->
   <button class="analysis-button" onclick="redirectToAnalysis()">熱點分析</button>
