@@ -23,6 +23,7 @@
       border-right: 5px solid transparent;
       border-bottom: 20px solid;
       position: absolute;
+      z-index: 100; /* Ensure arrows are above the heatmap */
     }
     #loading {
       position: absolute;
@@ -127,7 +128,7 @@
     <div class="legend-scale">
       <span class="high-intensity"></span> 高強度
     </div>
-    <div> <br> <strong>風向說明:</strong> <br> 紅色箭頭表示當地的風向。<br>箭頭顏色代表回報時間: 藍(最舊)->紅(最新)。 <br> </div>
+    <div> <br> <strong>風向說明:</strong> <br> 紅色箭頭表示當地的風向，箭頭顏色由藍漸變至紅以顯示回報的時間順序。 <br> </div>
   </div>
   <div id="map"></div>
   <div id="loading">分析中...</div>
@@ -246,7 +247,7 @@
       const overlay = new google.maps.OverlayView();
       overlay.onAdd = function() {
         const panes = this.getPanes();
-        panes.overlayLayer.appendChild(arrowDiv);
+        panes.overlayImage.appendChild(arrowDiv); // Place in overlayImage to ensure it is above the heatmap
       };
       overlay.draw = function() {
         const projection = this.getProjection();
