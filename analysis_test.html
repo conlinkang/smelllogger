@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>臭味熱點分析</title>
+  <style>
+    #map {
+      height: 600px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    .controls {
+      margin-bottom: 20px;
+    }
+    .control-item {
+      margin-right: 15px;
+    }
+    .arrow {
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-bottom: 20px solid;
+      position: absolute;
+      z-index: 100; /* Ensure arrows are above the heatmap */
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 20px;
+      font-size: 18px;
+      display: none;
+      z-index: 1000;
+    }
+    .ui-datepicker-today a {
+      background-color: orange !important;
+      color: white !important;
+    }
+    .highlight a {
+      background-color: blue !important;
+      color: white !important;
+    }
+    #legend {
+      background: white;
+      padding: 10px;
+      margin: 10px;
+      border: 1px solid black;
+      width: fit-content;
+    }
+    .legend-scale {
+      display: block;
+      margin-bottom: 10px;
+    }
+    .legend-scale span {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      margin-right: 5px;
+    }
+    .low-intensity {
+      background-color: rgba(0, 255, 0, 0.6);
+    }
+    .medium-intensity {
+      background-color: rgba(255, 255, 0, 0.6);
+    }
+    .high-intensity {
+      background-color: rgba(255, 0, 0, 0.6);
+    }
+    .return-button {
+      margin: 10px 0;
+      padding: 10px 15px;
+      background-color: #007BFF; /* Blue color */
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .return-button:hover {
+      background-color: #0056b3; /* Darker blue on hover */
+    }
+    #color-bar {
+      background: linear-gradient(to right, blue, red);
+      height: 20px;
+      width: 100%;
+      position: relative;
+      margin: 20px 0;
+    }
+    .marker {
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 16px solid black;
+      position: absolute;
+    }
+    .time-label {
+      position: absolute;
+      font-size: 12px;
+      transform: translate(-50%, -120%);
+      white-space: nowrap;
+    }
+    footer {
+      margin-top: 20px;
+      text-align: center;
+      font-weight: bold;
+    }
+  </style>
+
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- jQuery UI -->
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&libraries=visualization"></script>
+</head>
+<body>
+  <h3>臭味熱點分析</h3>
+  <div class="controls">
+    <label class="control-item">
+      最低臭味程度:
+      <select id="minSmellLevel">
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+    </label>
+    <label class="control-item">
+      日期:
+      <input type="text" id="filterDate">
+    </label>
+    <a href="index.html" class="control-item">
+      <button class="return-button">返回臭味標記頁面</button>
+    </a>
+  </div>
+  <div id="legend">
+    <strong>圖例說明</strong>
+    <div class="legend-scale">
+      <span class="low-intensity"></span> 低強度
+    </div>
+    <div class="legend-scale">
+      <span class="medium-intensity"></span> 中強度
+    </div>
+    <div class="legend-scale">
+      <span class="high-intensity"></span> 高強度
+    </div>
+    <div> <br> <strong>風向說明:</strong> <br> 紅色箭頭表示當地的風向，箭頭顏色由藍漸變至紅以顯示回報的時間順序。 <br> </div>
+  </div>
+  <div id="color-bar"></div>
+  <div id="map"></div>
+  <div id="loading">分析中...</div>
+
+  <script>
+    let map, heatmap;
+    const dataPoints = [];
+    const arrowOverlays = [];
+    let recordDates = [];
+    let filteredRecords = [];
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 23.713179, lng: 120.505580 },
+        zoom: 13
+      });
+
+      heatmap = new google.maps.visualization.HeatmapLayer({
+        data: dataPoints,
+        map: map,
+        radius: 20,
+        opacity: 0.6
+      });
+
+      loadData();
+      setDefaultDate();
+      setupDatepicker();
+    }
+
+    function setDefaultDate() {
+      const today = new Date().toISOString().split('T')[0];
+      $('#filterDate').val(today);
+    }
+
+    function setupDatepicker() {
+      $('#filterDate').datepicker({
+        dateFormat: 'yy-mm-dd',
+        beforeShowDay: function(date) {
+          const dateString = $.datepicker.formatDate('yy-mm-dd', date);
+          if (recordDates.includes(dateString)) {
+            return [true, 'highlight', '有紀錄'];
+          }
+          return [true, '', ''];
+        },
+        onSelect: function() {
+          loadData(); // Automatically load data when a date is selected
+        }
+      });
+    }
+
+    function loadData() {
+      document.getElementById('loading').style.display = 'block';
+      fetch('https://script.google.com/macros/s/AKfycbyqEBccQaivCIMNlPrt4Y1UabZyf_O7WiID1urO6XhfAHJO3qaoAz6iaXHJiPQp5YSG/exec')
+        .then(response => response.json())
+        .then(data => {
+          displayData(data);
+          document.getElementById('loading').style.display = 'none';
+        })
+        .catch(error => {
+          console.error('Error fetching data:', error);
+          document.getElementById('loading').style.display = 'none';
+        });
+    }
+
+    function displayData(data) {
+      const minLevel = parseInt(document.getElementById('minSmellLevel').value, 10);
+      const filterDate = document.getElementById('filterDate').value;
+      dataPoints.length = 0; // Clear existing data points
+      clearArrows(); // Clear existing arrow overlays
+      recordDates = []; // Reset record dates
+
+      filteredRecords = data.records.filter(record => {
+        const recordDate = new Date(record.聞到的時間);
+        const selectedDate = new Date(filterDate);
+        recordDates.push(recordDate.toISOString().split('T')[0]);
+        return record.臭味程度 >= minLevel && recordDate.toDateString() === selectedDate.toDateString();
+      });
+
+      // Sort records by time to determine the color gradient
+      filteredRecords.sort((a, b) => new Date(a.聞到的時間) - new Date(b.聞到的時間));
+
+      // Display data with color gradient to reflect reporting sequence
+      filteredRecords.forEach((record, index) => {
+        const color = interpolateColor([0, 0, 255], [255, 0, 0], index / (filteredRecords.length - 1));
+
+        // Add heatmap data points
+        dataPoints.push({
+          location: new google.maps.LatLng(record.緯度, record.經度),
+          weight: record.臭味程度
+        });
+
+        // Add wind direction arrow with color gradient based on report order
+        drawArrow(record.緯度, record.經度, record.風向, color);
+      });
+
+      createColorBarMarkers(); // Create markers on the color bar
+
+      heatmap.setData(dataPoints);
+      $('#filterDate').datepicker('refresh'); // Refresh datepicker to update highlighted dates
+    }
+
+    function interpolateColor(color1, color2, factor) {
+      const result = color1.slice();
+      for (let i = 0; i < 3; i++) {
+        result[i] = Math.round(result[i] + factor * (color2[i] - color1[i]));
+      }
+      return `rgb(${result.join(',')})`;
+    }
+
+    function drawArrow(lat, lng, windDirection, color) {
+      // Adjust windDirection to show the direction wind is blowing to
+      const adjustedDirection = (windDirection + 180) % 360;
+
+      const arrowDiv = document.createElement('div');
+      arrowDiv.className = 'arrow';
+      arrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
+      arrowDiv.style.borderBottomColor = color;
+
+      const overlay = new google.maps.OverlayView();
+      overlay.onAdd = function() {
+        const panes = this.getPanes();
+        panes.overlayImage.appendChild(arrowDiv); // Place in overlayImage to ensure it is above the heatmap
+      };
+      overlay.draw = function() {
+        const projection = this.getProjection();
+        const position = projection.fromLatLngToDivPixel(new google.maps.LatLng(lat, lng));
+        arrowDiv.style.left = `${position.x}px`;
+        arrowDiv.style.top = `${position.y}px`;
+      };
+      overlay.onRemove = function() {
+        arrowDiv.parentNode.removeChild(arrowDiv);
+      };
+      overlay.setMap(map);
+      
+      arrowOverlays.push(overlay);
+    }
+
+    function clearArrows() {
+      arrowOverlays.forEach(overlay => overlay.setMap(null));
+      arrowOverlays.length = 0; // Clear the array
+    }
+
+    function createColorBarMarkers() {
+      const bar = document.getElementById('color-bar');
+      bar.innerHTML = ''; // Clear previous markers
+
+      filteredRecords.forEach((record, index) => {
+        const factor = index / (filteredRecords.length - 1);
+        const marker = document.createElement('div');
+        marker.className = 'marker';
+        marker.style.left = `${factor * 100}%`;
+
+        const timeLabel = document.createElement('div');
+        timeLabel.className = 'time-label';
+        const timeString = new Date(record.聞到的時間).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        timeLabel.textContent = timeString;
+
+        bar.appendChild(marker);
+        bar.appendChild(timeLabel);
+
+        timeLabel.style.left = marker.style.left;
+      });
+    }
+
+    google.maps.event.addDomListener(window, 'load', initMap);
+  </script>
+  <footer>網頁製作人: 康嘉麟</footer>
+</body>
+</html>
