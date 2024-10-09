@@ -97,6 +97,9 @@
       top: 0;
       cursor: pointer;
     }
+    .activeMarker {
+      background: green; /* Change active marker color here */
+    }
     #timeDisplay {
       text-align: center;
       margin-top: 1px;
@@ -164,6 +167,7 @@
     const dataPoints = [];
     const arrowOverlays = [];
     let recordDates = [];
+    let activeMarker = null;
 
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
@@ -306,7 +310,16 @@
         marker.style.left = `${position}%`;
 
         marker.addEventListener('click', () => {
-          // Format time in 24-hour format, displaying hours and minutes only
+          // Remove active class from previously selected marker
+          if (activeMarker) {
+            activeMarker.classList.remove('activeMarker');
+          }
+
+          // Add active class to currently clicked marker
+          marker.classList.add('activeMarker');
+          activeMarker = marker;
+
+          // Display selected time
           document.getElementById('timeDisplay').innerText = time.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
         });
 
