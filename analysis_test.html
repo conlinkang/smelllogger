@@ -101,7 +101,7 @@
     .activeMarker {
       background: yellow; /* Change active marker color here */
       width: 3px;
-      opacity: 1
+      opacity: 1;
     }
     #timeDisplay {
       text-align: center;
@@ -206,6 +206,8 @@
           return [true, '', ''];
         },
         onSelect: function() {
+          // Clear the timeDisplay whenever a new date is selected
+          document.getElementById('timeDisplay').innerText = '';
           loadData();
         }
       });
