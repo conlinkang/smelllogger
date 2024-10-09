@@ -116,10 +116,10 @@
 
       const kmInLatitudeDegree = 1 / 110.574; 
       const kmInLongitudeDegree = 1 / (111.320 * Math.cos(center.lat * Math.PI / 180)); 
-      const gridSize = 0.1; 
+      const gridSize = 0.25; 
 
-      for (let i = -18; i <= 18; i++) {
-        for (let j = -18; j <= 18; j++) {
+      for (let i = -7; i <= 7; i++) {
+        for (let j = -7; j <= 7; j++) {
           const gridBounds = {
             north: center.lat + (i + 1) * gridSize * kmInLatitudeDegree,
             south: center.lat + i * gridSize * kmInLatitudeDegree,
