@@ -109,27 +109,30 @@
     let selectedGrid = null;
     let isSubmitted = false;
     let userIP = '';
-    const arrowOverlays = [];
+    const Overlays = [];
     const gridCells = [];
     const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心座標
 
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 15,
+        zoom: 16,  // increased zoom for better visibility of small grids
         center: center
       });
 
-      const kmInLatitudeDegree = 1 / 110.574; 
-      const kmInLongitudeDegree = 1 / (111.320 * Math.cos(center.lat * Math.PI / 180)); 
-      const gridSize = 0.25; 
+      const metersInLatitudeDegree = 111320; // approximate meters in a latitude degree
+      const metersInLongitudeDegree = 111320 * Math.cos(center.lat * Math.PI / 180); // approximate meters in a longitude degree
+      
+      const gridSize = 100; // 100 meters per grid
 
-      for (let i = -7; i <= 7; i++) {
-        for (let j = -7; j <= 7; j++) {
+      const halfGridCount = Math.floor(39 / 2); // create a half-grid count to offset the grid placement
+
+      for (let i = -halfGridCount; i <= halfGridCount; i++) {
+        for (let j = -halfGridCount; j <= halfGridCount; j++) {
           const gridBounds = {
-            north: center.lat + (i + 1) * gridSize * kmInLatitudeDegree,
-            south: center.lat + i * gridSize * kmInLatitudeDegree,
-            east: center.lng + (j + 1) * gridSize * kmInLongitudeDegree,
-            west: center.lng + j * gridSize * kmInLongitudeDegree,
+            north: center.lat + ((i + 1) * gridSize / metersInLatitudeDegree),
+            south: center.lat + (i * gridSize / metersInLatitudeDegree),
+            east: center.lng + ((j + 1) * gridSize / metersInLongitudeDegree),
+            west: center.lng + (j * gridSize / metersInLongitudeDegree),
           };
 
           const grid = new google.maps.Rectangle({
@@ -180,15 +183,15 @@
       currentPosition = latLng;
     }
 
-    function removeExistingArrows() {
-      arrowOverlays.forEach(overlay => overlay.setMap(null)); 
-      arrowOverlays.length = 0; 
+    function removeExistings() {
+      Overlays.forEach(overlay => overlay.setMap(null)); 
+      Overlays.length = 0; 
     }
 
-    function drawArrow(latLng, windSpeed, windDirection) {
+    function draw(latLng, windSpeed, windDirection) {
       const adjustedDirection = (windDirection + 180) % 360;
 
-      const arrowDiv = document.createElement('div');
+      const Div = document.createElement('div');
       arrowDiv.className = 'arrow';
       arrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
       const overlay = new google.maps.OverlayView();
