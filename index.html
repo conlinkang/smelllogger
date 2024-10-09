@@ -109,7 +109,7 @@
     let selectedGrid = null;
     let isSubmitted = false;
     let userIP = '';
-    const Overlays = [];
+    const arrowOverlays = [];
     const gridCells = [];
     const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心座標
 
@@ -183,15 +183,15 @@
       currentPosition = latLng;
     }
 
-    function removeExistings() {
-      Overlays.forEach(overlay => overlay.setMap(null)); 
-      Overlays.length = 0; 
+    function removeExistingArrows() {
+      arrowOverlays.forEach(overlay => overlay.setMap(null)); 
+      arrowOverlays.length = 0; 
     }
 
-    function draw(latLng, windSpeed, windDirection) {
+    function drawArrow(latLng, windSpeed, windDirection) {
       const adjustedDirection = (windDirection + 180) % 360;
 
-      const Div = document.createElement('div');
+      const arrowDiv = document.createElement('div');
       arrowDiv.className = 'arrow';
       arrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
       const overlay = new google.maps.OverlayView();
