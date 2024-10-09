@@ -70,6 +70,17 @@
     .high-intensity {
       background-color: rgba(255, 0, 0, 0.6);
     }
+    .time-gradient {
+      width: 100%;
+      height: 30px;
+      background: linear-gradient(to right, blue, red);
+      position: relative;
+      margin: 20px 0;
+    }
+    .time-label {
+      position: absolute;
+      top: -15px;
+    }
     .return-button {
       margin: 10px 0;
       padding: 10px 15px;
@@ -81,27 +92,6 @@
     }
     .return-button:hover {
       background-color: #0056b3; /* Darker blue on hover */
-    }
-    #color-bar {
-      background: linear-gradient(to right, blue, red);
-      height: 20px;
-      width: 100%;
-      position: relative;
-      margin: 20px 0;
-    }
-    .marker {
-      width: 0;
-      height: 0;
-      border-left: 8px solid transparent;
-      border-right: 8px solid transparent;
-      border-top: 16px solid black;
-      position: absolute;
-    }
-    .time-label {
-      position: absolute;
-      font-size: 12px;
-      transform: translate(-50%, -120%);
-      white-space: nowrap;
     }
     footer {
       margin-top: 20px;
@@ -151,7 +141,10 @@
     </div>
     <div> <br> <strong>風向說明:</strong> <br> 紅色箭頭表示當地的風向，箭頭顏色由藍漸變至紅以顯示回報的時間順序。 <br> </div>
   </div>
-  <div id="color-bar"></div>
+  <div class="time-gradient">
+    <span class="time-label" id="start-time" style="left: 0;">Start</span>
+    <span class="time-label" id="end-time" style="right: 0;">End</span>
+  </div>
   <div id="map"></div>
   <div id="loading">分析中...</div>
 
@@ -160,7 +153,6 @@
     const dataPoints = [];
     const arrowOverlays = [];
     let recordDates = [];
-    let filteredRecords = [];
 
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
@@ -222,7 +214,7 @@
       clearArrows(); // Clear existing arrow overlays
       recordDates = []; // Reset record dates
 
-      filteredRecords = data.records.filter(record => {
+      const filteredRecords = data.records.filter(record => {
         const recordDate = new Date(record.聞到的時間);
         const selectedDate = new Date(filterDate);
         recordDates.push(recordDate.toISOString().split('T')[0]);
@@ -231,6 +223,11 @@
 
       // Sort records by time to determine the color gradient
       filteredRecords.sort((a, b) => new Date(a.聞到的時間) - new Date(b.聞到的時間));
+
+      if (filteredRecords.length > 0) {
+        document.getElementById('start-time').innerText = new Date(filteredRecords[0].聞到的時間).toLocaleTimeString();
+        document.getElementById('end-time').innerText = new Date(filteredRecords[filteredRecords.length - 1].聞到的時間).toLocaleTimeString();
+      }
 
       // Display data with color gradient to reflect reporting sequence
       filteredRecords.forEach((record, index) => {
@@ -245,8 +242,6 @@
         // Add wind direction arrow with color gradient based on report order
         drawArrow(record.緯度, record.經度, record.風向, color);
       });
-
-      createColorBarMarkers(); // Create markers on the color bar
 
       heatmap.setData(dataPoints);
       $('#filterDate').datepicker('refresh'); // Refresh datepicker to update highlighted dates
@@ -281,7 +276,9 @@
         arrowDiv.style.top = `${position.y}px`;
       };
       overlay.onRemove = function() {
-        arrowDiv.parentNode.removeChild(arrowDiv);
+        if (arrowDiv.parentNode) {
+          arrowDiv.parentNode.removeChild(arrowDiv);
+        }
       };
       overlay.setMap(map);
       
@@ -291,28 +288,6 @@
     function clearArrows() {
       arrowOverlays.forEach(overlay => overlay.setMap(null));
       arrowOverlays.length = 0; // Clear the array
-    }
-
-    function createColorBarMarkers() {
-      const bar = document.getElementById('color-bar');
-      bar.innerHTML = ''; // Clear previous markers
-
-      filteredRecords.forEach((record, index) => {
-        const factor = index / (filteredRecords.length - 1);
-        const marker = document.createElement('div');
-        marker.className = 'marker';
-        marker.style.left = `${factor * 100}%`;
-
-        const timeLabel = document.createElement('div');
-        timeLabel.className = 'time-label';
-        const timeString = new Date(record.聞到的時間).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        timeLabel.textContent = timeString;
-
-        bar.appendChild(marker);
-        bar.appendChild(timeLabel);
-
-        timeLabel.style.left = marker.style.left;
-      });
     }
 
     google.maps.event.addDomListener(window, 'load', initMap);
