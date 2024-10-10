@@ -99,7 +99,7 @@
       opacity: 0.6;
     }
     .activeMarker {
-      background: yellow; /* Change active marker color here */
+      background: yellow;
       width: 3px;
       opacity: 1;
     }
@@ -121,7 +121,7 @@
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&libraries=visualization"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&libraries=visualization"></script> <!-- Replace YOUR_API_KEY with your Google Maps API key -->
 </head>
 <body>
   <h3>臭味熱點分析</h3>
@@ -161,14 +161,15 @@
     <div id="timeDisplay"></div>
     <br>
   </div>
-  <div id="map"></div>  
-  
+  <div id="map"></div>
+
   <div id="loading">分析中...</div>
 
   <script>
+    const apiKey = 'b142facd0784f0961a51dc355befed53';
     let map, heatmap;
     const dataPoints = [];
-    const arrowOverlays = [];
+    const overlayViews = [];
     let recordDates = [];
     let activeMarker = null;
 
@@ -181,8 +182,13 @@
       heatmap = new google.maps.visualization.HeatmapLayer({
         data: dataPoints,
         map: map,
-        radius: 20,
+        radius: getHeatmapRadius(map.getZoom()),
         opacity: 0.6
+      });
+
+      map.addListener('zoom_changed', () => {
+        const zoomLevel = map.getZoom();
+        updateHeatmapRadius(zoomLevel);
       });
 
       loadData();
@@ -200,13 +206,9 @@
         dateFormat: 'yy-mm-dd',
         beforeShowDay: function(date) {
           const dateString = $.datepicker.formatDate('yy-mm-dd', date);
-          if (recordDates.includes(dateString)) {
-            return [true, 'highlight', '有紀錄'];
-          }
-          return [true, '', ''];
+          return [true, recordDates.includes(dateString) ? 'highlight' : '', ''];
         },
         onSelect: function() {
-          // Clear the timeDisplay whenever a new date is selected
           document.getElementById('timeDisplay').innerText = '';
           loadData();
         }
@@ -248,18 +250,12 @@
 
       filteredRecords.forEach((record, index) => {
         const color = interpolateColor([0, 0, 255], [255, 0, 0], index / (filteredRecords.length - 1));
-
-        dataPoints.push({
-          location: new google.maps.LatLng(record.緯度, record.經度),
-          weight: record.臭味程度
-        });
-
+        dataPoints.push({ location: new google.maps.LatLng(record.緯度, record.經度), weight: record.臭味程度 });
         drawArrow(record.緯度, record.經度, record.風向, color);
       });
 
       heatmap.setData(dataPoints);
       $('#filterDate').datepicker('refresh');
-
       drawColorMarkers(filteredRecords, startTime, endTime);
     }
 
@@ -294,17 +290,17 @@
       };
       overlay.setMap(map);
 
-      arrowOverlays.push(overlay);
+      overlayViews.push(overlay);
     }
 
     function clearArrows() {
-      arrowOverlays.forEach(overlay => overlay.setMap(null));
-      arrowOverlays.length = 0;
+      overlayViews.forEach(overlay => overlay.setMap(null));
+      overlayViews.length = 0;
     }
 
     function drawColorMarkers(records, startTime, endTime) {
       const container = document.getElementById('colorBarContainer');
-      container.innerHTML = '';  // Clear previous markers
+      container.innerHTML = '';
 
       records.forEach(record => {
         const time = new Date(record.聞到的時間);
@@ -315,16 +311,11 @@
         marker.style.left = `${position}%`;
 
         marker.addEventListener('click', () => {
-          // Remove active class from previously selected marker
           if (activeMarker) {
             activeMarker.classList.remove('activeMarker');
           }
-
-          // Add active class to currently clicked marker
           marker.classList.add('activeMarker');
           activeMarker = marker;
-
-          // Display selected time
           document.getElementById('timeDisplay').innerText = time.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
         });
 
@@ -342,6 +333,15 @@
       document.getElementById('timeDisplay_start_end').innerHTML = '';
       document.getElementById('timeDisplay_start_end').appendChild(startTimeDiv);
       document.getElementById('timeDisplay_start_end').appendChild(endTimeDiv);
+    }
+
+    function updateHeatmapRadius(zoom) {
+      const radius = getHeatmapRadius(zoom);
+      heatmap.set('radius', radius);
+    }
+
+    function getHeatmapRadius(zoom) {
+      return Math.max(20, Math.pow(2, zoom - 10));
     }
 
     google.maps.event.addDomListener(window, 'load', initMap);
