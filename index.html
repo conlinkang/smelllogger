@@ -22,6 +22,9 @@
       font-weight: bold;
       margin-top: 10px;
     }
+    #weatherInfo_suspect {
+      display:none;
+    }
     .arrow {
       width: 0;
       height: 0;
@@ -61,7 +64,13 @@
       <p class="temperature"></p>
       <p class="wind-speed"></p>
       <p class="wind-direction"></p>
-    </div>
+    </div>   
+  </div>
+  <div id="weatherInfo_suspect">
+     <p class="weather-description"></p>
+     <p class="temperature"></p>
+     <p class="wind-speed"></p>
+     <p class="wind-direction"></p>
   </div>
   
   <form id="smellForm">
@@ -152,7 +161,7 @@
           gridCells.push({grid: grid, bounds: gridBounds});
         }
       }
-
+      getWeather_suspect(center.lat, center.lng);
       getLocation();
     }
 
@@ -238,6 +247,28 @@
           console.error('取得天氣資料時出錯: ', error);
         });
     }
+    
+    function getWeather_suspect(lat, lon) {
+      const apiKey = 'b142facd0784f0961a51dc355befed53';
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          const weather = data.weather[0].description;
+          const temperature = data.main.temp;
+          const windSpeed = data.wind.speed;
+          const windDirection = data.wind.deg;
+          const weatherInfo = document.getElementById('weatherInfo_suspect');
+          weatherInfo.querySelector('.weather-description').innerText = `氣象狀態: ${weather}`;
+          weatherInfo.querySelector('.temperature').innerText = `溫度: ${temperature}°C`;
+          weatherInfo.querySelector('.wind-speed').innerText = `風速: ${windSpeed} m/s`;
+          weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;          
+        })
+        .catch(error => {
+          console.error('取得天氣資料時出錯: ', error);
+        });
+    }
 
     function handleFormSubmit(event) {
       event.preventDefault();
@@ -257,6 +288,13 @@
         windSpeed: parseFloat(weatherInfoDiv.querySelector('.wind-speed').innerText.split(' ')[1]),
         windDirection: parseInt(weatherInfoDiv.querySelector('.wind-direction').innerText.split(' ')[1])
       };
+      const weatherInfoDiv_suspect = document.getElementById('weatherInfo_suspect');
+      const weatherInfo_suspect = {
+        weather: weatherInfoDiv_suspect.querySelector('.weather-description').innerText,
+        temperature: parseFloat(weatherInfoDiv_suspect.querySelector('.temperature').innerText.split(' ')[1]),
+        windSpeed: parseFloat(weatherInfoDiv_suspect.querySelector('.wind-speed').innerText.split(' ')[1]),
+        windDirection: parseInt(weatherInfoDiv_suspect.querySelector('.wind-direction').innerText.split(' ')[1])
+      };
 
       const submitButton = document.getElementById('submitButton');
       submitButton.innerText = '送出中...';
@@ -268,12 +306,13 @@
           smellLevel: parseInt(smellLevel),
           smellTime: smellTime,
           weatherInfo: weatherInfo,
+          weatherInfo_suspect: weatherInfo_suspect,
           userIP: userIP
         };
 
         console.log('資料已送出:', JSON.stringify(data));
 
-        fetch('https://script.google.com/macros/s/AKfycbwD_e7U2ZwyjCYIVdTjErayFfUi15uYoz9e6TgW5EuwH_Kk3OYOEcDqcRLmjGdhGBLF/exec', {
+        fetch('https://script.google.com/macros/s/AKfycbxDUbvowZycUgty9RTEdl2JTddO5rwUu2Yemfz9QWSsvD26xLeSWsX2_I7vR6RK1Abu/exec', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
