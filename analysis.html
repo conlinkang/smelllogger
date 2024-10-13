@@ -25,6 +25,16 @@
       position: absolute;
       z-index: 100;
     }
+    .average-arrow {
+      width: 0;
+      height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 30px solid black;
+      display: inline-block;
+      vertical-align: middle;
+      transform: rotate(45deg);
+    }
     #loading {
       position: absolute;
       top: 50%;
@@ -59,6 +69,16 @@
       display: inline-block;
       width: 20px;
       height: 20px;
+      margin-right: 5px;
+    }    
+    .legend-scale_arrow {
+      display: block;
+      margin-bottom: 10px;
+    }
+    .legend-scale_arrow span {
+      display: inline-block;
+      width: 3px;
+      height: 3px;
       margin-right: 5px;
     }
     .low-intensity {
@@ -155,10 +175,15 @@
     <div class="legend-scale">
       <span class="high-intensity"></span> 高強度
     </div>
+    <div class="legend-scale_arrow">
+    <span class="average-arrow"id="averageArrowLegend"></span>  區域平均風向，顯示在地圖中心位置。<br>
+    </div>
     <div><br><strong>風向說明:</strong><br> 箭頭表示當地的風向，箭頭顏色由藍漸變至紅以顯示回報的時間順序。<br></div>
     <div id="colorBarContainer"></div>
     <div id="timeDisplay_start_end"></div>
     <div id="timeDisplay"></div>
+    
+
     <br>
   </div>
   <div id="map"></div>
@@ -247,6 +272,10 @@
 
       const startTime = new Date(filteredRecords[0]?.聞到的時間 || 0);
       const endTime = new Date(filteredRecords[filteredRecords.length - 1]?.聞到的時間 || 0);
+      
+      const windDirections = filteredRecords.map(record => parseFloat(record.嫌疑位置風向));
+      const averageWindDirection = calculateAverageWindDirection(windDirections);
+      drawAverageWindArrow(23.713179, 120.505580, averageWindDirection); // 添加平均箭头绘制
 
       filteredRecords.forEach((record, index) => {
         const color = interpolateColor([0, 0, 255], [255, 0, 0], index / (filteredRecords.length - 1));
@@ -291,6 +320,45 @@
       overlay.setMap(map);
 
       overlayViews.push(overlay);
+    }
+
+    function drawAverageWindArrow(lat, lng, windDirection) {
+      const adjustedDirection = (windDirection + 180) % 360;
+      const avgarrowDiv = document.getElementById('averageArrowLegend');
+      avgarrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
+
+      const arrowDiv = document.createElement('div');
+      arrowDiv.className = 'average-arrow'; // Change to a distinct style
+      arrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
+
+      const overlay = new google.maps.OverlayView();
+      overlay.onAdd = function() {
+        const panes = this.getPanes();
+        panes.overlayImage.appendChild(arrowDiv);
+      };
+      overlay.draw = function() {
+        const projection = this.getProjection();
+        const position = projection.fromLatLngToDivPixel(new google.maps.LatLng(lat, lng));
+        arrowDiv.style.left = `${position.x}px`;
+        arrowDiv.style.top = `${position.y}px`;
+      };
+      overlay.onRemove = function() {
+        arrowDiv.parentNode.removeChild(arrowDiv);
+      };
+      overlay.setMap(map);
+
+      overlayViews.push(overlay);
+    }
+
+
+    function calculateAverageWindDirection(directions) {
+      let x = 0, y = 0;
+      for (const direction of directions) {
+        x += Math.cos(direction * Math.PI / 180);
+        y += Math.sin(direction * Math.PI / 180);
+      }
+      const averageDirection = Math.atan2(y, x) * 180 / Math.PI;
+      return (averageDirection + 360) % 360;  // Ensure the angle is between 0 and 360
     }
 
     function clearArrows() {
