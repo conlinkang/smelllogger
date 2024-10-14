@@ -324,8 +324,8 @@
 
     function drawAverageWindArrow(lat, lng, windDirection) {
       const adjustedDirection = (windDirection + 180) % 360;
-      const avgarrowDiv = document.getElementById('averageArrowLegend');
-      avgarrowDiv.style.transform = `rotate(${adjustedDirection}deg)`; 
+      //const avgarrowDiv = document.getElementById('averageArrowLegend');
+      //avgarrowDiv.style.transform = `rotate(${adjustedDirection}deg)`; 
       
       const arrowDiv = document.createElement('div');
       arrowDiv.className = 'average-arrow'; // Change to a distinct style
