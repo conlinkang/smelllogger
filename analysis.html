@@ -35,6 +35,16 @@
       vertical-align: middle;
       transform: rotate(45deg);
     }
+    .taget-arrow {
+      width: 0;
+      height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 30px solid green;
+      position: absolute;
+      z-index: 100;
+      transform: rotate(45deg);
+    }
     #loading {
       position: absolute;
       top: 50%;
@@ -328,7 +338,7 @@
       avgarrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
        
       const arrowDiv = document.createElement('div');
-      arrowDiv.className = 'average-arrow';
+      arrowDiv.className = 'taget-arrow';
       arrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
 
       const overlay = new google.maps.OverlayView();
