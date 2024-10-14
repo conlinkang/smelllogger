@@ -275,7 +275,7 @@
       
       const windDirections = filteredRecords.map(record => parseFloat(record.嫌疑位置風向));
       const averageWindDirection = calculateAverageWindDirection(windDirections);
-      drawAverageWindArrow(23.713179, 120.505580, averageWindDirection); // 添加平均箭头绘制
+      drawAverageWindArrow(23.713179, 120.505580, averageWindDirection); 
 
       filteredRecords.forEach((record, index) => {
         const color = interpolateColor([0, 0, 255], [255, 0, 0], index / (filteredRecords.length - 1));
@@ -324,11 +324,11 @@
 
     function drawAverageWindArrow(lat, lng, windDirection) {
       const adjustedDirection = (windDirection + 180) % 360;
-      //const avgarrowDiv = document.getElementById('averageArrowLegend');
-      //avgarrowDiv.style.transform = `rotate(${adjustedDirection}deg)`; 
-      
+      const avgarrowDiv = document.getElementById('averageArrowLegend');
+      avgarrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
+       
       const arrowDiv = document.createElement('div');
-      arrowDiv.className = 'average-arrow'; // Change to a distinct style
+      arrowDiv.className = 'average-arrow';
       arrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
 
       const overlay = new google.maps.OverlayView();
