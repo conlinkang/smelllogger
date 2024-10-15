@@ -207,6 +207,17 @@
     const overlayViews = [];
     let recordDates = [];
     let activeMarker = null;
+    
+    function getDateFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const dateParam = urlParams.get('date');
+      
+      // 检查日期格式，如果存在则返回，否则返回 null
+      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        return dateParam;
+      }
+      return null;
+    }
 
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
@@ -232,8 +243,13 @@
     }
 
     function setDefaultDate() {
-      const today = new Date().toISOString().split('T')[0];
-      $('#filterDate').val(today);
+      const dateFromUrl = getDateFromUrl();
+      if (dateFromUrl) {
+        $('#filterDate').val(dateFromUrl);
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        $('#filterDate').val(today);
+      }      
     }
 
     function setupDatepicker() {
