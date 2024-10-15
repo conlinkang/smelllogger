@@ -394,18 +394,18 @@
           }
           marker.classList.add('activeMarker');
           activeMarker = marker;
-          document.getElementById('timeDisplay').innerText = time.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+          document.getElementById('timeDisplay').innerText = time.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false });
         });
 
         container.appendChild(marker);
       });
 
       const startTimeDiv = document.createElement('div');
-      startTimeDiv.textContent = `起始: ${startTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+      startTimeDiv.textContent = `起始: ${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`;
       startTimeDiv.style.float = 'left';
 
       const endTimeDiv = document.createElement('div');
-      endTimeDiv.textContent = `結束: ${endTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+      endTimeDiv.textContent = `結束: ${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`;
       endTimeDiv.style.float = 'right';
 
       document.getElementById('timeDisplay_start_end').innerHTML = '';
