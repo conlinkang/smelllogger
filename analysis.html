@@ -284,8 +284,10 @@
       const endTime = new Date(filteredRecords[filteredRecords.length - 1]?.聞到的時間 || 0);
       
       const windDirections = filteredRecords.map(record => parseFloat(record.嫌疑位置風向));
-      const averageWindDirection = calculateAverageWindDirection(windDirections);
-      drawAverageWindArrow(23.713179, 120.505580, averageWindDirection); 
+      if (windDirections.length !== 0) {
+        const averageWindDirection = calculateAverageWindDirection(windDirections);
+        drawAverageWindArrow(23.713179, 120.505580, averageWindDirection); 
+      }
 
       filteredRecords.forEach((record, index) => {
         const color = interpolateColor([0, 0, 255], [255, 0, 0], index / (filteredRecords.length - 1));
