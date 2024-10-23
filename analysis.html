@@ -256,7 +256,9 @@
       $('#filterDate').datepicker({
         dateFormat: 'yy-mm-dd',
         beforeShowDay: function(date) {
-          const dateString = $.datepicker.formatDate('yy-mm-dd', date);
+          //console.log(recordDates);          
+          const dateString = $.datepicker.formatDate('yy/m/d', date);
+          //console.log(dateString);
           return [true, recordDates.includes(dateString) ? 'highlight' : '', ''];
         },
         onSelect: function() {
@@ -277,7 +279,7 @@
         .catch(error => {
           console.error('Error fetching data:', error);
           document.getElementById('loading').style.display = 'none';
-        });
+        });       
     }
 
     function displayData(data) {
@@ -288,11 +290,13 @@
       recordDates = [];
 
       const filteredRecords = data.records.filter(record => {
-        const recordDate = new Date(record.聞到的時間);
+        const recordDate = new Date(record.聞到的時間)
         const selectedDate = new Date(filterDate);
-        recordDates.push(recordDate.toISOString().split('T')[0]);
+        //recordDates.push(recordDate.toISOString().split('T')[0]);
+        recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
         return record.臭味程度 >= minLevel && recordDate.toDateString() === selectedDate.toDateString();
-      });
+      });     
+      
 
       filteredRecords.sort((a, b) => new Date(a.聞到的時間) - new Date(b.聞到的時間));
 
