@@ -60,6 +60,10 @@
       background-color: orange !important;
       color: white !important;
     }
+    .ui-datepicker-calender {
+      display: table;
+    }
+
     .highlight a {
       background-color: blue !important;
       color: white !important;
@@ -141,6 +145,9 @@
       text-align: center;
       margin-top: 1px;
     }
+    #minSmellLevel {
+      display: none;
+    }
     footer {
       margin-top: 20px;
       text-align: center;
@@ -157,7 +164,13 @@
   <h3>臭味熱點分析</h3>
   <div class="controls">
     <label class="control-item">
-      最低臭味程度:
+      分析類型:
+      <select id="analysisType">
+        <option value="day" selected>按日分析</option>
+        <option value="month">按月分析</option>
+      </select>
+    </label>
+    <label class="control-item">      
       <select id="minSmellLevel">
         <option value="1" selected>1</option>
         <option value="2">2</option>
@@ -239,16 +252,74 @@
 
       loadData();
       setDefaultDate();
-      setupDatepicker();
+      resetDatepicker();
+      //setupDatepicker();
+      setupAnalysisTypeChange(); // New function
+    }
+    
+    function setupAnalysisTypeChange() {
+      $('#analysisType').on('change', function() {       
+        setDefaultDate();
+        resetDatepicker();
+        //setupDatepicker();
+        loadData();
+        document.getElementById('timeDisplay').innerText = '';
+      });
+    }
+    
+    function resetDatepicker() {
+      const analysisType = $('#analysisType').val();
+      if (analysisType === 'month') {
+        $('#filterDate').datepicker('destroy').datepicker({
+          dateFormat: 'yy-mm',
+          changeMonth: true,
+          changeYear: true,
+          showButtonPanel: true,
+          onClose: function(dateText, inst) {
+            const month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
+            const year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();            
+            $(this).datepicker( "option", "defaultDate", new Date(year, month, 1));
+            const date = `${year}-${parseInt(month,10)+1}`;
+            $('#filterDate').val(date);            
+            document.getElementById('timeDisplay').innerText = '';
+            loadData();
+          },                    
+          beforeShowDay: function(date) {                       
+            return [false];
+          }
+        });        
+      } else {
+        $('#filterDate').datepicker('destroy').datepicker({
+          dateFormat: 'yy-mm-dd',
+          beforeShowDay: function(date) {        
+            const dateString = $.datepicker.formatDate('yy/m/d', date);
+            return [true, recordDates.includes(dateString) ? 'highlight' : '', ''];
+          },
+          onSelect: function() {
+          document.getElementById('timeDisplay').innerText = '';
+          loadData();
+        }
+
+        });
+      }      
     }
 
     function setDefaultDate() {
       const dateFromUrl = getDateFromUrl();
-      if (dateFromUrl) {
-        $('#filterDate').val(dateFromUrl);
+      const analysisType = $('#analysisType').val();
+      if (analysisType === 'day') {
+        if (dateFromUrl) {
+          $('#filterDate').val(dateFromUrl);
+        } else {
+          const today = new Date().toISOString().split('T')[0];
+          $('#filterDate').val(today);
+        }      
       } else {
-        const today = new Date().toISOString().split('T')[0];
-        $('#filterDate').val(today);
+        const [year, month, day] = new Date().toISOString().split('T')[0].split('-');
+        const date = `${year}-${month}`;
+        //console.log(date);
+        $('#filterDate').val(date);
+        
       }      
     }
 
@@ -273,16 +344,25 @@
       fetch('https://script.google.com/macros/s/AKfycbyqEBccQaivCIMNlPrt4Y1UabZyf_O7WiID1urO6XhfAHJO3qaoAz6iaXHJiPQp5YSG/exec')
         .then(response => response.json())
         .then(data => {
-          displayData(data);
-          document.getElementById('loading').style.display = 'none';
+          const analysisType = $('#analysisType').val();
+          if (analysisType === 'day') {
+            return analyzeByDay(data);
+          } else {
+            return analyzeByMonth(data);
+          }                    
+        })
+        .then(date => {
+            //console.log(date);
+            displayData(date);
+            document.getElementById('loading').style.display = 'none';
         })
         .catch(error => {
           console.error('Error fetching data:', error);
           document.getElementById('loading').style.display = 'none';
         });       
     }
-
-    function displayData(data) {
+    
+    function analyzeByDay(data) {
       const minLevel = parseInt(document.getElementById('minSmellLevel').value, 10);
       const filterDate = document.getElementById('filterDate').value;
       dataPoints.length = 0;
@@ -290,13 +370,36 @@
       recordDates = [];
 
       const filteredRecords = data.records.filter(record => {
+        const recordDate = new Date(record.聞到的時間);
+        const selectedDate = new Date(filterDate);
+        //recordDates.push(recordDate.toISOString().split('T')[0]);
+        recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
+        //console.log(recordDate.toDateString());
+        //console.log(selectedDate.toDateString());
+        return record.臭味程度 >= minLevel && recordDate.toDateString() === selectedDate.toDateString();
+      });
+      return filteredRecords
+    }
+
+    function analyzeByMonth(data) {
+      const minLevel = parseInt($('#minSmellLevel').val(), 10);
+      const filterDate = document.getElementById('filterDate').value;   
+      dataPoints.length = 0;
+      clearArrows();
+      recordDates = [];
+      const filteredRecords = data.records.filter(record => {
         const recordDate = new Date(record.聞到的時間)
         const selectedDate = new Date(filterDate);
         //recordDates.push(recordDate.toISOString().split('T')[0]);
         recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
-        return record.臭味程度 >= minLevel && recordDate.toDateString() === selectedDate.toDateString();
-      });     
-      
+        //console.log(recordDate.toDateString().split(' ')[1]);
+        //console.log(selectedDate.toDateString().split(' ')[1]);
+        return record.臭味程度 >= minLevel && recordDate.toDateString().split(' ')[1]===selectedDate.toDateString().split(' ')[1]&& recordDate.toDateString().split(' ')[3]===selectedDate.toDateString().split(' ')[3];
+      });
+      return filteredRecords
+    }
+
+    function displayData(filteredRecords) {
 
       filteredRecords.sort((a, b) => new Date(a.聞到的時間) - new Date(b.聞到的時間));
 
@@ -316,7 +419,9 @@
       });
 
       heatmap.setData(dataPoints);
+      //console.log(3, $('.ui-datepicker-calendar').css('display'))  
       $('#filterDate').datepicker('refresh');
+      //console.log(4, $('.ui-datepicker-calendar').css('display'))  
       drawColorMarkers(filteredRecords, startTime, endTime);
     }
 
@@ -399,6 +504,7 @@
     }
 
     function drawColorMarkers(records, startTime, endTime) {
+      console.log(records.length);
       const container = document.getElementById('colorBarContainer');
       container.innerHTML = '';
 
@@ -416,19 +522,43 @@
           }
           marker.classList.add('activeMarker');
           activeMarker = marker;
-          document.getElementById('timeDisplay').innerText = time.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false });
+          //console.log(time)
+          const analysisType = $('#analysisType').val();
+          if (analysisType === 'day') {
+            document.getElementById('timeDisplay').innerText = time.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false });
+          } else {
+            document.getElementById('timeDisplay').innerText = time.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei' });
+          }
         });
 
         container.appendChild(marker);
       });
 
+      const analysisType = $('#analysisType').val();
       const startTimeDiv = document.createElement('div');
-      startTimeDiv.textContent = `起始: ${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`;
-      startTimeDiv.style.float = 'left';
-
       const endTimeDiv = document.createElement('div');
-      endTimeDiv.textContent = `結束: ${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`;
-      endTimeDiv.style.float = 'right';
+
+      if (analysisType === 'day') {
+        
+        //console.log(startTime)
+        startTimeDiv.textContent = records.length>0?`起始: ${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`:`--`;
+        startTimeDiv.style.float = 'left';
+
+        
+        //console.log(endTime)
+        endTimeDiv.textContent = records.length>0?`結束: ${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`:`--`;
+        endTimeDiv.style.float = 'right';
+      } else {
+        
+        //console.log(startTime)
+        startTimeDiv.textContent = records.length>0?`起始: ${startTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
+        startTimeDiv.style.float = 'left';
+
+        
+        //console.log(endTime)
+        endTimeDiv.textContent = records.length>0?`結束: ${endTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
+        endTimeDiv.style.float = 'right';
+      }  
 
       document.getElementById('timeDisplay_start_end').innerHTML = '';
       document.getElementById('timeDisplay_start_end').appendChild(startTimeDiv);
