@@ -263,6 +263,7 @@
         resetDatepicker();
         //setupDatepicker();
         loadData();
+        document.getElementById('timeDisplay').innerText = '';
       });
     }
     
@@ -276,16 +277,15 @@
           showButtonPanel: true,
           onClose: function(dateText, inst) {
             const month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
-            const year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();
-            $(this).datepicker('setDate', new Date(year, month, 1));
-            loadData();
-          },          
-          beforeShowDay: function(date) {                       
-            return [false, 'display: none', ''];
-          },
-          onSelect: function() {
+            const year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();            
+            $(this).datepicker( "option", "defaultDate", new Date(year, month, 1));
+            const date = `${year}-${parseInt(month,10)+1}`;
+            $('#filterDate').val(date);            
             document.getElementById('timeDisplay').innerText = '';
             loadData();
+          },                    
+          beforeShowDay: function(date) {                       
+            return [false];
           }
         });        
       } else {
@@ -296,13 +296,13 @@
             return [true, recordDates.includes(dateString) ? 'highlight' : '', ''];
           },
           onSelect: function() {
-            document.getElementById('timeDisplay').innerText = '';
-            loadData();
-          }
+          document.getElementById('timeDisplay').innerText = '';
+          loadData();
+        }
+
         });
       }      
     }
-
 
     function setDefaultDate() {
       const dateFromUrl = getDateFromUrl();
@@ -317,8 +317,9 @@
       } else {
         const [year, month, day] = new Date().toISOString().split('T')[0].split('-');
         const date = `${year}-${month}`;
-        console.log(date);
+        //console.log(date);
         $('#filterDate').val(date);
+        
       }      
     }
 
@@ -369,7 +370,7 @@
       recordDates = [];
 
       const filteredRecords = data.records.filter(record => {
-        const recordDate = new Date(record.聞到的時間)
+        const recordDate = new Date(record.聞到的時間);
         const selectedDate = new Date(filterDate);
         //recordDates.push(recordDate.toISOString().split('T')[0]);
         recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
@@ -393,7 +394,7 @@
         recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
         //console.log(recordDate.toDateString().split(' ')[1]);
         //console.log(selectedDate.toDateString().split(' ')[1]);
-        return record.臭味程度 >= minLevel && recordDate.toDateString().split(' ')[1]===selectedDate.toDateString().split(' ')[1]&& recordDate.toDateString().split(' ')[3]===selectedDate.toDateString().split(' ')[3];//有問題
+        return record.臭味程度 >= minLevel && recordDate.toDateString().split(' ')[1]===selectedDate.toDateString().split(' ')[1]&& recordDate.toDateString().split(' ')[3]===selectedDate.toDateString().split(' ')[3];
       });
       return filteredRecords
     }
@@ -503,6 +504,7 @@
     }
 
     function drawColorMarkers(records, startTime, endTime) {
+      console.log(records.length);
       const container = document.getElementById('colorBarContainer');
       container.innerHTML = '';
 
@@ -520,7 +522,7 @@
           }
           marker.classList.add('activeMarker');
           activeMarker = marker;
-          console.log(time)
+          //console.log(time)
           const analysisType = $('#analysisType').val();
           if (analysisType === 'day') {
             document.getElementById('timeDisplay').innerText = time.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false });
@@ -538,23 +540,23 @@
 
       if (analysisType === 'day') {
         
-        console.log(startTime)
-        startTimeDiv.textContent = `起始: ${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`;
+        //console.log(startTime)
+        startTimeDiv.textContent = records.length>0?`起始: ${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`:`--`;
         startTimeDiv.style.float = 'left';
 
         
-        console.log(endTime)
-        endTimeDiv.textContent = `結束: ${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`;
+        //console.log(endTime)
+        endTimeDiv.textContent = records.length>0?`結束: ${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`:`--`;
         endTimeDiv.style.float = 'right';
       } else {
         
-        console.log(startTime)
-        startTimeDiv.textContent = `起始: ${startTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`;
+        //console.log(startTime)
+        startTimeDiv.textContent = records.length>0?`起始: ${startTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
         startTimeDiv.style.float = 'left';
 
         
-        console.log(endTime)
-        endTimeDiv.textContent = `結束: ${endTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`;
+        //console.log(endTime)
+        endTimeDiv.textContent = records.length>0?`結束: ${endTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
         endTimeDiv.style.float = 'right';
       }  
 
