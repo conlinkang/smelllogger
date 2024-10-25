@@ -154,10 +154,14 @@
       font-weight: bold;
     }
   </style>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.3/themes/smoothness/jquery-ui.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.13.3/jquery-ui.js"></script>
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+  //<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  //<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>  
+  //<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&libraries=visualization"></script> <!-- Replace YOUR_API_KEY with your Google Maps API key -->
 </head>
 <body>
@@ -169,7 +173,14 @@
         <option value="day" selected>按日分析</option>
         <option value="month">按月分析</option>
       </select>
+    </label>    
+    <label class="control-item">
+      日期:
+      <input type="text" id="filterDate">
     </label>
+    <a href="index.html" class="control-item">
+      <button class="return-button">返回臭味標記頁面</button>
+    </a>
     <label class="control-item">      
       <select id="minSmellLevel">
         <option value="1" selected>1</option>
@@ -179,13 +190,6 @@
         <option value="5">5</option>
       </select>
     </label>
-    <label class="control-item">
-      日期:
-      <input type="text" id="filterDate">
-    </label>
-    <a href="index.html" class="control-item">
-      <button class="return-button">返回臭味標記頁面</button>
-    </a>
   </div>
   <div id="legend">
     <strong>圖例說明</strong>
@@ -221,15 +225,26 @@
     let recordDates = [];
     let activeMarker = null;
     
-    function getDateFromUrl() {
+    function getModeAndDateFromUrl() {
       const urlParams = new URLSearchParams(window.location.search);
       const dateParam = urlParams.get('date');
-      
-      // 检查日期格式，如果存在则返回，否则返回 null
-      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-        return dateParam;
+      const modeParam = urlParams.get('mode');
+      if (modeParam==='day'){
+        // 检查日期格式，如果存在则返回，否则返回 null
+        if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+          return [modeParam, dateParam];
+        }else{
+          return [null, null]
+        }      
+      }else if (modeParam==='month'){
+        // 检查日期格式，如果存在则返回，否则返回 null
+        if (dateParam && /^\d{4}-\d{2}$/.test(dateParam)) {
+          return [modeParam, dateParam];
+        }else{
+          return [null, null]
+        }
       }
-      return null;
+      return [null, null]
     }
 
     function initMap() {
@@ -279,13 +294,35 @@
             const month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
             const year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();            
             $(this).datepicker( "option", "defaultDate", new Date(year, month, 1));
-            const date = `${year}-${parseInt(month,10)+1}`;
+            const date = `${year}-${String(parseInt(month,10)+1).padStart(2, '0')}`;
             $('#filterDate').val(date);            
             document.getElementById('timeDisplay').innerText = '';
             loadData();
+          },
+          beforeShow: function(input, inst) {    
+            console.log(input)
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();                   
+              //$("#ui-datepicker-div .ui-datepicker-calendar").css('display', 'none');             
+            }, 1);            
           },                    
-          beforeShowDay: function(date) {                       
+          beforeShowDay: function(date) {    
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();                   
+              //$("#ui-datepicker-div .ui-datepicker-calendar").css('display', 'none');             
+            }, 1);  
             return [false];
+          },
+          onChangeMonthYear: function(year, month, inst) {
+            //month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
+            //year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();     
+            //console.log(year, month) 
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();                   
+              //$("#ui-datepicker-div .ui-datepicker-calendar").css('display', 'none');             
+            }, 1);       
+            const date = `${year}-${String(parseInt(month,10)).padStart(2, '0')}`;
+            $('#filterDate').val(date);
           }
         });        
       } else {
@@ -296,16 +333,19 @@
             return [true, recordDates.includes(dateString) ? 'highlight' : '', ''];
           },
           onSelect: function() {
-          document.getElementById('timeDisplay').innerText = '';
-          loadData();
-        }
-
+            document.getElementById('timeDisplay').innerText = '';
+            loadData();
+          }
         });
       }      
     }
 
     function setDefaultDate() {
-      const dateFromUrl = getDateFromUrl();
+      const [modeFromUrl, dateFromUrl] = getModeAndDateFromUrl();
+      console.log(modeFromUrl, dateFromUrl);
+      if (modeFromUrl) {
+        $('#analysisType').val(modeFromUrl);
+      }
       const analysisType = $('#analysisType').val();
       if (analysisType === 'day') {
         if (dateFromUrl) {
@@ -315,11 +355,14 @@
           $('#filterDate').val(today);
         }      
       } else {
-        const [year, month, day] = new Date().toISOString().split('T')[0].split('-');
-        const date = `${year}-${month}`;
-        //console.log(date);
-        $('#filterDate').val(date);
-        
+        if (dateFromUrl) {
+          $('#filterDate').val(dateFromUrl);
+        } else {
+          const [year, month, day] = new Date().toISOString().split('T')[0].split('-');
+          const date = `${year}-${month}`;
+          console.log(date);
+          $('#filterDate').val(date);
+        } 
       }      
     }
 
@@ -374,9 +417,9 @@
         const selectedDate = new Date(filterDate);
         //recordDates.push(recordDate.toISOString().split('T')[0]);
         recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
-        //console.log(recordDate.toDateString());
-        //console.log(selectedDate.toDateString());
-        return record.臭味程度 >= minLevel && recordDate.toDateString() === selectedDate.toDateString();
+        //console.log(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
+        //console.log(selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
+        return record.臭味程度 >= minLevel && recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}) === selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'});
       });
       return filteredRecords
     }
@@ -392,9 +435,11 @@
         const selectedDate = new Date(filterDate);
         //recordDates.push(recordDate.toISOString().split('T')[0]);
         recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
-        //console.log(recordDate.toDateString().split(' ')[1]);
-        //console.log(selectedDate.toDateString().split(' ')[1]);
-        return record.臭味程度 >= minLevel && recordDate.toDateString().split(' ')[1]===selectedDate.toDateString().split(' ')[1]&& recordDate.toDateString().split(' ')[3]===selectedDate.toDateString().split(' ')[3];
+        //console.log(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1]);
+        //console.log(selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1]);
+        return record.臭味程度 >= minLevel && 
+               recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[0]===selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[0]&& 
+               recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1]===selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1];
       });
       return filteredRecords
     }
@@ -504,7 +549,7 @@
     }
 
     function drawColorMarkers(records, startTime, endTime) {
-      console.log(records.length);
+      //console.log(records.length);
       const container = document.getElementById('colorBarContainer');
       container.innerHTML = '';
 
@@ -559,17 +604,6 @@
         endTimeDiv.textContent = records.length>0?`結束: ${endTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
         endTimeDiv.style.float = 'right';
       }  
-
-      //const startTimeDiv = document.createElement('div');
-      //console.log(startTime)
-      //startTimeDiv.textContent = `起始: ${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`;
-      //startTimeDiv.style.float = 'left';
-
-      //const endTimeDiv = document.createElement('div');
-      //console.log(endTime)
-      //endTimeDiv.textContent = `結束: ${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`;
-      //endTimeDiv.style.float = 'right';
-      
 
       document.getElementById('timeDisplay_start_end').innerHTML = '';
       document.getElementById('timeDisplay_start_end').appendChild(startTimeDiv);
