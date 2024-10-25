@@ -297,6 +297,13 @@
           },                    
           beforeShowDay: function(date) {                       
             return [false];
+          },
+          onChangeMonthYear: function(year, month, inst) {
+            //month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
+            //year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();     
+            //console.log(year, month)       
+            const date = `${year}-${String(parseInt(month,10)).padStart(2, '0')}`;
+            $('#filterDate').val(date);
           }
         });        
       } else {
@@ -579,17 +586,6 @@
         endTimeDiv.textContent = records.length>0?`結束: ${endTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
         endTimeDiv.style.float = 'right';
       }  
-
-      //const startTimeDiv = document.createElement('div');
-      //console.log(startTime)
-      //startTimeDiv.textContent = `起始: ${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`;
-      //startTimeDiv.style.float = 'left';
-
-      //const endTimeDiv = document.createElement('div');
-      //console.log(endTime)
-      //endTimeDiv.textContent = `結束: ${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`;
-      //endTimeDiv.style.float = 'right';
-      
 
       document.getElementById('timeDisplay_start_end').innerHTML = '';
       document.getElementById('timeDisplay_start_end').appendChild(startTimeDiv);
