@@ -347,7 +347,7 @@
 
     function setDefaultDate() {
       const [modeFromUrl, dateFromUrl] = getModeAndDateFromUrl();
-      console.log(modeFromUrl, dateFromUrl);
+      //console.log(modeFromUrl, dateFromUrl);
       if (modeFromUrl) {
         $('#analysisType').val(modeFromUrl);
       }
@@ -365,7 +365,7 @@
         } else {
           const [year, month, day] = new Date().toISOString().split('T')[0].split('-');
           const date = `${year}-${month}`;
-          console.log(date);
+          //console.log(date);
           $('#filterDate').val(date);
         } 
       }      
