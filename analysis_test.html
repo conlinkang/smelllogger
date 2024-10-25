@@ -302,24 +302,18 @@
           beforeShow: function(input, inst) {    
             console.log(input)
             setTimeout(() => {
-              $("#ui-datepicker-div .ui-datepicker-calendar").hide();                   
-              //$("#ui-datepicker-div .ui-datepicker-calendar").css('display', 'none');             
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();
             }, 1);            
           },                    
           beforeShowDay: function(date) {    
             setTimeout(() => {
-              $("#ui-datepicker-div .ui-datepicker-calendar").hide();                   
-              //$("#ui-datepicker-div .ui-datepicker-calendar").css('display', 'none');             
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();
             }, 1);  
             return [false];
           },
           onChangeMonthYear: function(year, month, inst) {
-            //month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
-            //year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();     
-            //console.log(year, month) 
             setTimeout(() => {
-              $("#ui-datepicker-div .ui-datepicker-calendar").hide();                   
-              //$("#ui-datepicker-div .ui-datepicker-calendar").css('display', 'none');             
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();       
             }, 1);       
             const date = `${year}-${String(parseInt(month,10)).padStart(2, '0')}`;
             $('#filterDate').val(date);
