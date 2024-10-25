@@ -156,7 +156,8 @@
   </style>
   <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.3/themes/smoothness/jquery-ui.css">
   <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
-  <script src="https://code.jquery.com/ui/1.13.3/jquery-ui.js"></script>
+  <script src="https://code.jquery.com/ui/1.13.3/jquery-ui.js"></script>  
+
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&libraries=visualization"></script> <!-- Replace YOUR_API_KEY with your Google Maps API key -->
 </head>
 <body>
@@ -319,7 +320,7 @@
           dateFormat: 'yy-mm-dd',
           beforeShowDay: function(date) {        
             const dateString = $.datepicker.formatDate('yy/m/d', date);
-            return [true, recordDates.includes(dateString) ? 'highlight' : '', ''];
+            return [true, recordDates.includes(dateString) ? '' : 'highlight', ''];
           },
           onSelect: function() {
             document.getElementById('timeDisplay').innerText = '';
