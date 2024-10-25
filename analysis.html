@@ -60,8 +60,8 @@
       background-color: orange !important;
       color: white !important;
     }
-    .ui-datepicker-calender {
-      display: table;
+    #ui-datepicker-div .ui-datepicker-calendar {
+      display: none;
     }
 
     .highlight a {
@@ -154,10 +154,10 @@
       font-weight: bold;
     }
   </style>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.3/themes/smoothness/jquery-ui.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.13.3/jquery-ui.js"></script>  
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&libraries=visualization"></script> <!-- Replace YOUR_API_KEY with your Google Maps API key -->
 </head>
 <body>
@@ -292,16 +292,27 @@
             $(this).datepicker( "option", "defaultDate", new Date(year, month, 1));
             const date = `${year}-${String(parseInt(month,10)+1).padStart(2, '0')}`;
             $('#filterDate').val(date);            
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();
+            }, 0);  
             document.getElementById('timeDisplay').innerText = '';
             loadData();
+          },
+          beforeShow: function(input, inst) { 
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();
+            }, 0);            
           },                    
-          beforeShowDay: function(date) {                       
+          beforeShowDay: function(date) {    
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();
+            }, 0);  
             return [false];
           },
           onChangeMonthYear: function(year, month, inst) {
-            //month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
-            //year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();     
-            //console.log(year, month)       
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").hide();       
+            }, 0);       
             const date = `${year}-${String(parseInt(month,10)).padStart(2, '0')}`;
             $('#filterDate').val(date);
           }
@@ -309,15 +320,25 @@
       } else {
         $('#filterDate').datepicker('destroy').datepicker({
           dateFormat: 'yy-mm-dd',
+          beforeShow: function(input, inst) {
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").show();
+            }, 0);            
+          },
           beforeShowDay: function(date) {        
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").show();
+            }, 0);
             const dateString = $.datepicker.formatDate('yy/m/d', date);
-            return [true, recordDates.includes(dateString) ? 'highlight' : '', ''];
+            return [true, recordDates.includes(dateString) ? '' : 'highlight', ''];
           },
           onSelect: function() {
-          document.getElementById('timeDisplay').innerText = '';
-          loadData();
-        }
-
+            setTimeout(() => {
+              $("#ui-datepicker-div .ui-datepicker-calendar").show();
+            }, 0);
+            document.getElementById('timeDisplay').innerText = '';
+            loadData();
+          }
         });
       }      
     }
