@@ -290,7 +290,7 @@
             const month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
             const year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();            
             $(this).datepicker( "option", "defaultDate", new Date(year, month, 1));
-            const date = `${year}-${parseInt(month,10)+1}`;
+            const date = `${year}-${String(parseInt(month,10)+1).padStart(2, '0')}`;
             $('#filterDate').val(date);            
             document.getElementById('timeDisplay').innerText = '';
             loadData();
@@ -330,11 +330,14 @@
           $('#filterDate').val(today);
         }      
       } else {
-        const [year, month, day] = new Date().toISOString().split('T')[0].split('-');
-        const date = `${year}-${month}`;
-        //console.log(date);
-        $('#filterDate').val(date);
-        
+        if (dateFromUrl) {
+          $('#filterDate').val(dateFromUrl);
+        } else {
+          const [year, month, day] = new Date().toISOString().split('T')[0].split('-');
+          const date = `${year}-${month}`;
+          console.log(date);
+          $('#filterDate').val(date);
+        } 
       }      
     }
 
@@ -389,9 +392,9 @@
         const selectedDate = new Date(filterDate);
         //recordDates.push(recordDate.toISOString().split('T')[0]);
         recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
-        //console.log(recordDate.toDateString());
-        //console.log(selectedDate.toDateString());
-        return record.臭味程度 >= minLevel && recordDate.toDateString() === selectedDate.toDateString();
+        //console.log(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
+        //console.log(selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
+        return record.臭味程度 >= minLevel && recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}) === selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'});
       });
       return filteredRecords
     }
@@ -407,9 +410,11 @@
         const selectedDate = new Date(filterDate);
         //recordDates.push(recordDate.toISOString().split('T')[0]);
         recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
-        //console.log(recordDate.toDateString().split(' ')[1]);
-        //console.log(selectedDate.toDateString().split(' ')[1]);
-        return record.臭味程度 >= minLevel && recordDate.toDateString().split(' ')[1]===selectedDate.toDateString().split(' ')[1]&& recordDate.toDateString().split(' ')[3]===selectedDate.toDateString().split(' ')[3];
+        //console.log(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1]);
+        //console.log(selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1]);
+        return record.臭味程度 >= minLevel && 
+               recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[0]===selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[0]&& 
+               recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1]===selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1];
       });
       return filteredRecords
     }
@@ -574,6 +579,17 @@
         endTimeDiv.textContent = records.length>0?`結束: ${endTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
         endTimeDiv.style.float = 'right';
       }  
+
+      //const startTimeDiv = document.createElement('div');
+      //console.log(startTime)
+      //startTimeDiv.textContent = `起始: ${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`;
+      //startTimeDiv.style.float = 'left';
+
+      //const endTimeDiv = document.createElement('div');
+      //console.log(endTime)
+      //endTimeDiv.textContent = `結束: ${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`;
+      //endTimeDiv.style.float = 'right';
+      
 
       document.getElementById('timeDisplay_start_end').innerHTML = '';
       document.getElementById('timeDisplay_start_end').appendChild(startTimeDiv);
