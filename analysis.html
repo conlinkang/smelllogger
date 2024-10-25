@@ -286,6 +286,7 @@
           changeMonth: true,
           changeYear: true,
           showButtonPanel: true,
+          yearRange: "2024:2028",
           onClose: function(dateText, inst) {
             const month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
             const year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();            
@@ -320,6 +321,7 @@
       } else {
         $('#filterDate').datepicker('destroy').datepicker({
           dateFormat: 'yy-mm-dd',
+          yearRange: "2024:2028",
           beforeShow: function(input, inst) {
             setTimeout(() => {
               $("#ui-datepicker-div .ui-datepicker-calendar").show();
