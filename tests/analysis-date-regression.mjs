@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '../official-form-runner/node_modules/playwright/index.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const analysisPage = process.env.ANALYSIS_PAGE || 'analysis_test.html';
 const proofDir = process.env.PROOF_DIR ? path.resolve(process.env.PROOF_DIR) : '';
 if (proofDir) fs.mkdirSync(proofDir, { recursive: true });
 const mimeTypes = {
@@ -96,7 +97,7 @@ try {
     body: JSON.stringify({ records })
   }));
 
-  await page.goto(`${baseUrl}/analysis_test.html`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${baseUrl}/${analysisPage}`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.querySelector('#recordCount')?.textContent !== '--');
 
   assert.equal(await page.locator('#filterRegion').count(), 0, 'analysis must not show a region selector');

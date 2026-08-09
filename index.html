@@ -3,20 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>臭味標記地圖</title>
+  <title>臭味標記地圖2.0</title>
   <style>
+    :root { color-scheme: light; --ink: #18324b; --muted: #5d7186; --surface: #ffffff; --line: #dbe5ef; --accent: #1769aa; --accent-dark: #0d4775; }
+    body { max-width: 1120px; margin: 0 auto; padding: 22px clamp(14px, 3vw, 36px) 32px; color: var(--ink); background: #edf4fa; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5; }
+    h3 { margin: 0 0 14px; font-size: clamp(1.4rem, 3vw, 2rem); }
     #map {
       height: 500px;
       width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #dceaf5;
     }
+    .map-message { display: grid; place-items: center; height: 100%; padding: 24px; color: var(--muted); text-align: center; }
     #locationMessage {
       color: red;
       font-weight: bold;
       margin-top: 10px;
     }
-    #info {
-      margin-bottom: 10px;
-    }
+    #info { margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    #info p { margin: 4px 0; }
     #message {
       color: red;
       font-weight: bold;
@@ -25,6 +32,20 @@
     #weatherInfo_suspect {
       display:none;
     }
+    #weatherInfo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+    #weatherInfo p { margin: 0; padding: 7px 8px; border-radius: 7px; background: var(--surface); font-size: .9rem; }
+    #smellForm { display: grid; gap: 12px; }
+    .options { display: grid; grid-template-columns: auto repeat(5, minmax(0, 1fr)); gap: 8px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+    .options > label:first-child { font-weight: 700; }
+    .options > label:not(:first-child) { display: flex; align-items: center; gap: 5px; min-height: 34px; }
+    input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); flex: 0 0 auto; }
+    #smellTime { box-sizing: border-box; width: 100%; min-height: 42px; padding: 8px; border: 1px solid #b8c6d8; border-radius: 7px; background: #fff; font: inherit; }
+    .submit-checklist { display: grid; gap: 7px; padding: 10px 12px; border: 1px solid #c8d9e8; border-radius: 10px; background: #f8fbfe; font-size: .9rem; }
+    .submit-checklist strong { font-size: .95rem; }
+    .checklist-items { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .checklist-item { padding: 6px 8px; border-radius: 7px; background: #eaf0f5; color: var(--muted); }
+    .checklist-item.is-ready { background: #e6f6ed; color: #23633f; font-weight: 700; }
+    .checklist-hint { margin: 0; color: var(--muted); font-size: .82rem; }
     .arrow {
       width: 0;
       height: 0;
@@ -37,14 +58,161 @@
     .analysis-button {
       margin: 10px 0;
       padding: 10px 15px;
-      background-color: #007BFF; /* Blue color */
+      background-color: var(--accent);
       color: white;
       border: none;
       border-radius: 5px;
       cursor: pointer;
     }
     .analysis-button:hover {
-      background-color: #0056b3; /* Darker blue on hover */
+      background-color: var(--accent-dark);
+    }
+    .analysis-button:disabled {
+      background-color: #8aa1b5;
+      cursor: not-allowed;
+      opacity: .7;
+    }
+    .report-section {
+      margin: 18px 0;
+      padding: 16px;
+      border: 1px solid #dbe4f0;
+      border-radius: 12px;
+      background: #f7faff;
+    }
+    .report-section h4 { margin: 0 0 6px; }
+    .report-hint { margin: 0 0 14px; color: #526173; font-size: 0.92rem; }
+    .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .report-field { display: flex; flex-direction: column; gap: 5px; font-weight: 600; }
+    .report-field select, .report-field input, .report-field textarea { box-sizing: border-box; width: 100%; padding: 9px; border: 1px solid #b8c6d8; border-radius: 7px; background: #fff; font: inherit; }
+    .report-field textarea { min-height: 112px; resize: vertical; line-height: 1.5; }
+    .report-section fieldset { margin: 14px 0; padding: 10px; border: 1px solid #dbe4f0; border-radius: 8px; }
+    .report-section legend { padding: 0 5px; font-weight: 600; }
+    .impact-options { display: flex; flex-wrap: wrap; gap: 8px 14px; font-weight: normal; }
+    .generate-description { margin-top: 8px; padding: 8px 12px; border: 1px solid #5278a8; border-radius: 7px; background: #fff; color: #24527d; cursor: pointer; }
+    .report-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+    .report-actions a, .report-actions button { padding: 8px 12px; border: 1px solid #5278a8; border-radius: 7px; background: #fff; color: #24527d; font: inherit; text-decoration: none; cursor: pointer; }
+    .report-details { margin-top: 14px; }
+    .report-details summary { cursor: pointer; font-weight: 600; }
+    .moenv-fast-options { background: #effaf5; border-color: #b9dfcf !important; }
+    .moenv-fast-options .report-hint { margin: 0 0 10px; }
+    .consent-field { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-weight: normal; line-height: 1.5; }
+    .reporter-storage-note { margin: 10px 0 0; color: #526173; font-size: 0.9rem; }
+    #reporterProfileStatus { color: #2f6b4f; font-size: 0.9rem; }
+    .voice-assist {
+      margin: 14px 0 18px;
+      padding: 14px 16px 16px;
+      border: 2px solid #e7a22e;
+      border-left: 8px solid #c66a0a;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #fff8e8 0%, #fff 72%);
+      box-shadow: 0 5px 16px rgba(154, 92, 12, .12);
+    }
+    .voice-assist-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .voice-assist h5 { display: flex; align-items: center; gap: 8px; margin: 0; color: #8a4300; font-size: 1.08rem; }
+    .voice-assist h5::before { content: '🎙'; font-size: 1.25rem; line-height: 1; }
+    .voice-badge { padding: 3px 9px; border: 1px solid #d58a20; border-radius: 999px; background: #fff0c9; color: #7a4200; font-size: .78rem; font-weight: 800; white-space: nowrap; }
+    .voice-assist-lead { margin: 7px 0 4px; color: #553713; font-weight: 700; }
+    .voice-assist-example { margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(255, 239, 196, .72); color: #5b421e; }
+    .voice-assist-example strong { color: #8a4300; }
+    .voice-assist-rule { margin: 7px 0 0; color: #6d5635; font-size: .88rem; }
+    .voice-actions { margin-top: 12px; }
+    .voice-actions button { min-height: 48px; border: 2px solid #a95508; border-radius: 9px; background: #c66a0a; color: #fff; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 0 3px 8px rgba(125, 65, 0, .18); }
+    .voice-actions button:hover { background: #9f4f05; }
+    .voice-actions button:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+    .voice-actions #voiceStopButton { background: #8f2d2d; border-color: #762020; }
+    .voice-actions #voiceStopButton:hover { background: #6f2020; }
+    .voice-assist #voiceStatus { margin: 9px 0 0; color: #8a4300; font-weight: 700; }
+    .voice-transcript { margin: 10px 0 0; padding: 8px 10px; border: 1px solid #edcf93; border-radius: 8px; background: #fff; }
+    .voice-transcript strong { color: #6f400c; }
+    .voice-acoustic-cue { margin: 7px 0 0; }
+    .voice-privacy-note { margin-bottom: 0; font-size: .82rem; }
+    .submit-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; padding: 8px; border: 1px solid #b9cde0; border-radius: 10px; background: rgba(255,255,255,.95); box-shadow: 0 6px 20px rgba(24,50,75,.14); }
+    .submit-bar #submitButton { flex: 1 1 220px; margin: 0; min-height: 48px; font-size: 1.05rem; font-weight: 700; }
+    .submit-bar #message { flex: 1 1 100%; margin: 0; }
+    .official-captcha { margin-top: 10px; padding: 14px; border: 2px solid #1769aa; border-radius: 12px; background: #f4f9ff; }
+    .official-captcha[hidden] { display: none; }
+    .official-captcha h4 { margin: 0 0 6px; color: #0d4775; }
+    .official-captcha p { margin: 5px 0; }
+    .captcha-image-wrap { display: inline-flex; margin: 10px 0; padding: 8px; border: 1px solid #b8cbe0; border-radius: 8px; background: #fff; }
+    .captcha-image-wrap[hidden], .captcha-field[hidden] { display: none !important; }
+    #officialCaptchaImage { display: block; max-width: 100%; min-width: 180px; height: auto; }
+    .captcha-field { display: grid; gap: 5px; max-width: 320px; font-weight: 700; }
+    .captcha-field input { box-sizing: border-box; width: 100%; min-height: 48px; padding: 9px 12px; border: 2px solid #5278a8; border-radius: 8px; background: #fff; font: inherit; font-size: 1.15rem; letter-spacing: .18em; text-transform: uppercase; }
+    .captcha-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .captcha-actions button { min-height: 48px; padding: 9px 14px; border: 1px solid #1769aa; border-radius: 8px; background: #fff; color: #0d4775; font: inherit; font-weight: 800; cursor: pointer; }
+    .captcha-actions button.primary { background: #1769aa; color: #fff; }
+    .captcha-actions button:disabled { cursor: not-allowed; opacity: .5; }
+    #officialCaptchaStatus { color: #8a4300; font-weight: 700; }
+    .official-completion-reminder { margin: 12px 0 0; padding: 10px 12px; border-left: 4px solid #d59a00; border-radius: 6px; background: #fff7d6; color: #653f00; font-weight: 700; line-height: 1.55; }
+    #officialCaptchaExpiry { color: #5d7186; font-size: .86rem; }
+    .attachment-picker { margin-top: 12px; padding: 12px; border: 1px solid #9ebbd4; border-radius: 10px; background: #f7fbff; }
+    .attachment-picker h5 { margin: 0 0 6px; color: #174d74; font-size: 1rem; }
+    .attachment-picker input[type="file"] { box-sizing: border-box; width: 100%; margin-top: 8px; padding: 9px; border: 1px solid #789ab8; border-radius: 8px; background: #fff; }
+    .attachment-list { margin: 8px 0 0; padding-left: 22px; }
+    .attachment-list:empty { display: none; }
+    .official-review { margin-top: 8px; padding: 12px; border: 2px solid #d6a72c; border-radius: 10px; background: #fff9e6; color: #4c3b0b; }
+    .official-review[hidden] { display: none; }
+    .official-review h4 { margin: 0 0 6px; color: #6b4f00; }
+    .official-review p { margin: 5px 0; }
+    .official-review ol { margin: 8px 0; padding-left: 22px; }
+    .official-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .official-review-actions a, .official-review-actions button { min-height: 44px; padding: 9px 12px; border: 1px solid #856404; border-radius: 7px; background: #fff; color: #5b4300; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+    .official-review-actions a.primary { background: #1769aa; border-color: #1769aa; color: #fff; }
+    .official-review-note { color: #665a36; font-size: .86rem; }
+    .official-simulation { margin-top: 10px; padding: 14px; border: 2px solid #5278a8; border-radius: 10px; background: #f5f9ff; }
+    .official-simulation[hidden] { display: none; }
+    .simulation-banner { display: inline-block; margin-bottom: 8px; padding: 4px 8px; border-radius: 5px; background: #e7eef8; color: #24527d; font-size: .82rem; font-weight: 700; }
+    .official-simulation h4 { margin: 0 0 6px; color: #18324b; }
+    .official-simulation p { margin: 5px 0; }
+    .simulation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+    .simulation-field { min-width: 0; padding: 8px; border: 1px solid #c5d4e6; border-radius: 7px; background: #fff; }
+    .simulation-field.wide { grid-column: 1 / -1; }
+    .simulation-field span { display: block; color: #526173; font-size: .8rem; }
+    .simulation-field strong, .simulation-field p { display: block; margin-top: 3px; overflow-wrap: anywhere; }
+    .simulation-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .simulation-actions button { min-height: 44px; padding: 9px 12px; border: 1px solid #5278a8; border-radius: 7px; background: #fff; color: #24527d; font: inherit; font-weight: 700; cursor: pointer; }
+    .simulation-actions button.primary { background: #1769aa; color: #fff; }
+    .simulation-actions button:disabled { cursor: not-allowed; opacity: .45; }
+    #simulationStatus { color: #23633f; font-weight: 700; }
+    @media (max-width: 600px) {
+      body { padding: 12px 10px calc(86px + env(safe-area-inset-bottom)); }
+      h3 { margin-bottom: 8px; font-size: 1.35rem; }
+      #info { margin-bottom: 8px; padding: 10px; }
+      #info p { margin: 2px 0; }
+      #weatherInfo { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-top: 7px; }
+      #weatherInfo p { font-size: .82rem; }
+      #map { height: 240px; border-radius: 10px; }
+      .options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 9px; }
+      .options > label:first-child { grid-column: 1 / -1; }
+      .options > label:not(:first-child) { min-height: 38px; padding: 4px; border-radius: 6px; background: #f4f8fb; font-size: .9rem; }
+      .submit-checklist { padding: 8px; font-size: .84rem; }
+      .checklist-items { gap: 4px; }
+      .checklist-item { padding: 5px; text-align: center; font-size: .78rem; }
+      .report-section { margin: 8px 0; padding: 10px; }
+      .report-section h4 { font-size: 1.05rem; }
+      .report-hint { margin-bottom: 8px; font-size: .82rem; }
+      .report-grid { grid-template-columns: 1fr; gap: 8px; }
+      .report-section fieldset { margin: 9px 0; padding: 8px; }
+      .impact-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+      .report-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+      .report-actions a, .report-actions button, .generate-description { width: 100%; min-height: 42px; box-sizing: border-box; }
+      .voice-assist { margin: 10px 0 14px; padding: 12px; border-left-width: 6px; }
+      .voice-assist h5 { font-size: 1rem; }
+      .voice-actions { display: grid; grid-template-columns: 1fr; }
+      .voice-actions button { width: 100%; min-height: 50px; }
+      .captcha-image-wrap { display: flex; }
+      .captcha-field { max-width: none; }
+      .captcha-actions { display: grid; grid-template-columns: 1fr; }
+      .captcha-actions button { width: 100%; }
+      .official-review-actions { display: grid; grid-template-columns: 1fr; }
+      .official-review-actions a, .official-review-actions button { width: 100%; box-sizing: border-box; text-align: center; }
+      .simulation-grid { grid-template-columns: 1fr; }
+      .simulation-field.wide { grid-column: auto; }
+      .simulation-actions { display: grid; grid-template-columns: 1fr; }
+      .simulation-actions button { width: 100%; }
+      .submit-bar { margin-left: -2px; margin-right: -2px; }
+      .submit-bar #submitButton { flex-basis: 100%; }
+      footer { padding-bottom: 8px; font-size: .88rem; }
     }
     footer {
       margin-top: 20px;
@@ -54,7 +222,7 @@
   </style>
 </head>
 <body>
-  <h3>標記臭味位置</h3>
+  <h3>標記臭味位置（一站式完成環境部陳情信件）</h3>
   <div id="info">
     <p id="userLocation"></p>
     <p id="address"></p>
@@ -64,8 +232,9 @@
       <p class="temperature"></p>
       <p class="wind-speed"></p>
       <p class="wind-direction"></p>
-    </div>   
+     </div>
   </div>
+  <div id="map"></div>
   <div id="weatherInfo_suspect">
      <p class="weather-description"></p>
      <p class="temperature"></p>
@@ -74,55 +243,441 @@
   </div>
   
   <form id="smellForm">
-    <div class="options">
-      <label>臭味程度:</label>
-      <label><input type="radio" name="smellLevel" value="1" required> 1(略有臭味)</label>
-      <label><input type="radio" name="smellLevel" value="2" required> 2(輕微臭味)</label>
-      <label><input type="radio" name="smellLevel" value="3" required> 3(明顯臭味)</label>
-      <label><input type="radio" name="smellLevel" value="4" required checked> 4(強烈刺鼻臭味)</label>
-      <label><input type="radio" name="smellLevel" value="5" required> 5(令人噁心窒息)</label>
-    </div>
-    <br>
     <label for="smellTime">聞到的時間:</label>
-    <input id="smellTime" type="datetime-local" name="smellTime" required disabled>
+    <input id="smellTime" type="datetime-local" name="smellTime" required disabled aria-describedby="smellTimeHint">
+    <small id="smellTimeHint" class="reporter-storage-note">由系統自動記錄本次定位與通報時間。</small>
     <br>
-    <button class="analysis-button" type="submit" id="submitButton">送出</button>    
-    <p id="message"></p>
-
-    <div id="map"></div>
+    <section class="report-section" aria-labelledby="report-title">
+      <h4 id="report-title">環境部通報資料（快速選擇）</h4>
+      <p class="report-hint">選擇後會自動產生說明文字；內容仍可自行修改。正式通報前請確認資料正確。</p>
+      <section class="voice-assist" aria-labelledby="voice-title"><div class="voice-assist-heading"><h5 id="voice-title">一句話語音輔助</h5><span class="voice-badge">選用功能</span></div><p class="voice-assist-lead">用一句話描述現場，快速產生環境部分類建議。</p><p class="voice-assist-example"><strong>例如：</strong>「斗六市附近有很重的畜牧堆肥味，持續半小時。」</p><p class="voice-assist-rule">語音只用來產生分類建議，套用後仍可自行修改。</p><div class="report-actions voice-actions"><button type="button" id="voiceStartButton">🎙 開始語音分析</button><button type="button" id="voiceStopButton" hidden>■ 停止錄音</button></div><p id="voiceStatus" class="report-hint" role="status"></p><p class="voice-transcript"><strong>辨識文字：</strong><span id="voiceTranscript">尚未錄音</span></p><p id="voiceAcousticCue" class="reporter-storage-note voice-acoustic-cue">聲音表達強度：尚未分析（僅輔助，不等同臭味程度）</p><p class="reporter-storage-note voice-privacy-note">啟用後，短音訊會一次性送到 Google Cloud Speech-to-Text 與 Vertex AI 分析，不保存音訊；不建議在語音中說姓名、電話或地址。</p></section>
+      <div class="options">
+        <label>臭味程度:</label>
+        <label><input type="radio" name="smellLevel" value="1" required> 1(略有臭味)</label>
+        <label><input type="radio" name="smellLevel" value="2" required> 2(輕微臭味)</label>
+        <label><input type="radio" name="smellLevel" value="3" required> 3(明顯臭味)</label>
+        <label><input type="radio" name="smellLevel" value="4" required checked> 4(強烈刺鼻臭味)</label>
+        <label><input type="radio" name="smellLevel" value="5" required> 5(令人噁心窒息)</label>
+      </div>
+      <fieldset class="moenv-fast-options">
+        <legend>環境部異味情形快速分類</legend>
+        <p class="report-hint">這些選項對應環境部異味陳情表單，先選最接近的情形即可。</p>
+        <label class="report-field" for="moenvCause">污染情形類別
+          <select id="moenvCause">
+            <option value="animal">動物</option>
+            <option value="biogas">沼氣（瓦斯）</option>
+            <option value="strawBurning">燃燒稻草</option>
+            <option value="incenseBurning">燃燒行為－燒香或紙錢</option>
+            <option value="unknown">不明</option>
+            <option value="other">其他</option>
+            <option value="productionProcess">生產或作業過程</option>
+            <option value="openBurning">露天燃燒</option>
+            <option value="fire">火災</option>
+            <option value="kitchenWaste">廚餘蒸煮異味</option>
+            <option value="cookingSmoke">烹飪油煙</option>
+            <option value="fertilizeCompost" selected>施肥或堆肥</option>
+          </select>
+        </label>
+       </fieldset>
+      <div class="report-grid">
+        <label class="report-field" for="odorType">異味類型
+          <select id="odorType"><option value="chemical">化學溶劑或油漆味</option><option value="sulfur">硫磺或臭雞蛋味</option><option value="ammonia">氨味或尿味</option><option value="sewage">污水或腐敗味</option><option value="burning">燃燒或塑膠焦味</option><option value="oil">油煙或餐飲異味</option><option value="livestock" selected>畜牧或堆肥異味</option><option value="other">其他異味</option></select>
+        </label>
+        <label class="report-field" for="odorDuration">持續時間
+          <select id="odorDuration"><option value="lessThanFive">5 分鐘內</option><option value="fiveToThirty" selected>5–30 分鐘</option><option value="thirtyToTwoHours">30–120 分鐘</option><option value="moreThanTwoHours">超過 2 小時</option><option value="recurring">反覆發生</option></select>
+        </label>
+        <label class="report-field" for="suspectedSource">疑似來源（僅供查核參考）
+          <select id="suspectedSource"><option value="unknown" selected>無法判斷</option><option value="factory">工廠或工業設施</option><option value="livestock">畜牧場或堆肥場</option><option value="sewage">污水或下水道</option><option value="burning">露天燃燒或廢棄物燃燒</option><option value="restaurant">餐飲或油煙</option><option value="vehicle">車輛或交通活動</option></select>
+        </label>
+      </div>
+      <fieldset><legend>身體感受（可複選）</legend><div class="impact-options"><label><input type="checkbox" name="odorImpact" value="none" checked> 目前沒有明顯不適</label><label><input type="checkbox" name="odorImpact" value="headache"> 頭暈或頭痛</label><label><input type="checkbox" name="odorImpact" value="nausea"> 噁心</label><label><input type="checkbox" name="odorImpact" value="throat"> 喉嚨或呼吸道不適</label><label><input type="checkbox" name="odorImpact" value="eye"> 眼睛刺激</label><label><input type="checkbox" name="odorImpact" value="other"> 其他不適</label></div></fieldset>
+      <label class="report-field" for="odorDetail">補充關鍵字或現場觀察<input id="odorDetail" type="text" maxlength="200" placeholder="例如：每天傍晚從東南方飄來，我感覺非常不舒服"></label>
+      <label class="report-field" for="reportDescription">通報說明<textarea id="reportDescription" maxlength="1000"></textarea></label>
+      <button class="generate-description" type="button" id="generateDescription">重新產生說明文字</button>
+      <div class="report-actions"><button type="button" id="copyReportDescription">複製通報說明</button><button type="button" id="copyReportPacket">複製完整通報資料</button></div>
+      <section class="attachment-picker" aria-labelledby="attachment-title">
+        <h5 id="attachment-title">現場照片（選填）</h5>
+        <p class="report-hint">可選擇 1–3 張 JPG／PNG；只傳給本次環境部填單，不會送到平台紀錄或 Google Sheet。系統會在手機上縮圖壓縮，總容量上限 5 MB。</p>
+        <input id="officialAttachments" type="file" accept="image/jpeg,image/png" multiple>
+        <div class="report-actions"><button type="button" id="clearOfficialAttachments" hidden>清除附件</button></div>
+        <ul id="officialAttachmentList" class="attachment-list" aria-live="polite"></ul>
+        <p id="officialAttachmentStatus" class="reporter-storage-note" role="status">未選擇附件；仍可正常填單。</p>
+      </section>
+       <details class="report-details" open><summary>環境部填單前確認</summary><p class="report-hint">若已啟用環境部填單服務，這個確認會允許把具名資料送入一次性填單流程；正式送出前仍需要再次檢查。</p><label class="consent-field"><input id="officialSubmissionConfirmed" type="checkbox"> 我已確認發生時間、GPS／附近地址、快速分類與通報說明，並同意依環境部流程處理本次具名陳情。</label></details>
+      <details class="report-details"><summary>環境部第二階段資料（系統預填）</summary><p class="report-hint">這些欄位對應環境部表單後續頁面；不知道污染者時保留「不明」，不要求使用者猜測。</p><div class="report-grid"><label class="report-field" for="pollutantName">污染者名稱<input id="pollutantName" type="text" value="不明" autocomplete="organization"></label><label class="report-field" for="pollutantPhone">污染者電話（知道才填）<input id="pollutantPhone" type="tel"></label><label class="report-field" for="pollutantResponsible">污染者負責人（知道才填）<input id="pollutantResponsible" type="text"></label><label class="report-field" for="inspectionTime">指定到場稽查時間<select id="inspectionTime"><option value="no" selected>否</option><option value="yes">是（於說明文字補充時間）</option></select></label><label class="report-field" for="replyMethod">處理結果回覆方式<select id="replyMethod"><option value="email" selected>Email回覆</option><option value="phone">電話回覆</option><option value="written">書面回覆</option></select></label><label class="report-field" for="joinInspection">是否願意會同稽查<select id="joinInspection"><option value="no" selected>否</option><option value="yes">是</option></select></label></div></details>
+       <details class="report-details" open><summary>填單人資料（選填；具名陳情時使用）</summary><p class="reporter-storage-note">平台紀錄不需要個資。若要具名陳情，可在此填寫；勾選後只會記住在本機瀏覽器，平台與 Google Sheet 不會保存。</p><div class="report-grid"><label class="report-field" for="reporterName">姓名<input id="reporterName" type="text" autocomplete="name"></label><label class="report-field" for="reporterPhone">電話<input id="reporterPhone" type="tel" autocomplete="tel"></label><label class="report-field" for="reporterEmail">電子信箱<input id="reporterEmail" type="email" autocomplete="email"></label><label class="report-field" for="reporterAddress">聯絡地址<input id="reporterAddress" type="text" autocomplete="street-address" placeholder="例如：雲林縣斗六市○○路1號"><small class="reporter-storage-note">需包含縣市與鄉鎮市區，例如：雲林縣斗六市。</small></label></div><label class="consent-field"><input id="reporterConsent" type="checkbox"> 記住於本機，下次開啟網頁時自動帶入（不會上傳到平台）。</label><div class="report-actions"><button type="button" id="clearReporterProfile">清除本機填單資料</button><span id="reporterProfileStatus" role="status"></span></div></details>
+    </section>
+    <section class="submit-checklist" aria-label="送出前檢查">
+      <strong>送出前快速確認</strong>
+      <div class="checklist-items">
+        <span id="checkLocation" class="checklist-item">○ 定位</span>
+        <span id="checkReporter" class="checklist-item">○ 環境部個資未完成</span>
+        <span id="checkConsent" class="checklist-item">○ 環境部確認</span>
+      </div>
+      <p id="submitModeHint" class="checklist-hint">尚未完成定位，請先選擇通報位置；完成定位後才可送出平台紀錄。</p>
+    </section>
+    <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton" data-submission-mode="location-required" disabled>請先完成定位</button><p id="message" role="status" aria-live="polite"></p></div>
+    <section id="officialCaptchaPanel" class="official-captcha" hidden aria-labelledby="official-captcha-title">
+      <h4 id="official-captcha-title">環境部表單處理中</h4>
+      <p id="officialCaptchaInstructions">Google Cloud 正在準備環境部表單。</p>
+      <div id="officialCaptchaImageWrap" class="captcha-image-wrap"><img id="officialCaptchaImage" alt="環境部 CAPTCHA 驗證碼"></div>
+      <label id="officialCaptchaField" class="captcha-field" for="officialCaptchaInput">輸入驗證碼
+        <input id="officialCaptchaInput" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="12" spellcheck="false">
+      </label>
+      <p id="officialCaptchaExpiry"></p>
+      <div class="captcha-actions">
+        <button type="button" id="officialCaptchaSubmit" class="primary" disabled>輸入驗證碼並確認送出</button>
+        <button type="button" id="officialCaptchaRestart" hidden>重新準備環境部表單</button>
+      </div>
+      <p id="officialEmailReminder" class="official-completion-reminder">您尚未完成報案，請至信箱收取認證信；若收件匣沒有看到，請檢查垃圾郵件。請由信中連結完成確認，直到取得案件編號後才算完成報案。</p>
+      <p id="officialCaptchaStatus" role="status" aria-live="polite"></p>
+    </section>
+    <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
+      <h4 id="official-review-title">下一步：人工檢查並完成最後送出</h4>
+      <p>雲端服務已完成環境部表單的資料準備，現在需要你在環境部網站檢查內容並按下環境部表單的最後「送出」。</p>
+      <ol>
+        <li>按「開啟環境部公害陳情表單」。</li>
+        <li>按「複製完整通報資料」，依資料貼入環境部表單並檢查。</li>
+        <li>在環境部表單最後確認後，按環境部的「送出」按鈕。</li>
+      </ol>
+      <div class="official-review-actions">
+        <a id="officialReviewLink" class="primary" href="https://ww3.moenv.gov.tw/Public/Case_Add.aspx" target="_blank" rel="noopener">開啟環境部公害陳情表單</a>
+        <button type="button" id="officialReviewCopy">複製完整通報資料</button>
+      </div>
+      <p class="official-review-note">目前雲端虛擬瀏覽器與你的 Chrome 是不同工作階段，因此環境部表單不會自動帶入；此區提供人工確認與快速複製資料。</p>
+    </section>
+    <section id="officialSimulationPanel" class="official-simulation" hidden aria-labelledby="official-simulation-title">
+      <span class="simulation-banner">測試模擬畫面｜不會送出真實案件</span>
+      <h4 id="official-simulation-title">環境部公害污染陳情－送出前確認</h4>
+      <p>雲端服務已完成資料準備。請檢查以下模擬畫面，確認後可測試按鈕狀態與完成畫面。</p>
+      <div class="simulation-grid">
+        <div class="simulation-field"><span>陳情類別</span><strong>異味污染物</strong></div>
+        <div class="simulation-field"><span>發生時間</span><strong id="simulationTime">--</strong></div>
+        <div class="simulation-field"><span>污染地點</span><strong id="simulationLocation">--</strong></div>
+        <div class="simulation-field"><span>污染者名稱</span><strong id="simulationPollutant">--</strong></div>
+        <div class="simulation-field"><span>填單人姓名</span><strong id="simulationReporterName">--</strong></div>
+        <div class="simulation-field"><span>回覆方式</span><strong id="simulationReplyMethod">--</strong></div>
+        <div class="simulation-field wide"><span>聯絡資料</span><strong id="simulationReporterContact">--</strong></div>
+        <div class="simulation-field wide"><span>通報說明</span><p id="simulationDescription">--</p></div>
+      </div>
+      <label class="consent-field"><input id="simulationCheck" type="checkbox"> 我已檢查模擬畫面中的資料（測試用，不會送出真實案件）。</label>
+      <div class="simulation-actions">
+        <button type="button" id="simulationBack">返回修改資料</button>
+        <button type="button" id="simulationConfirm" class="primary" disabled>測試模擬：確認送出</button>
+      </div>
+      <p id="simulationStatus" role="status" aria-live="polite"></p>
+    </section>
     
     
   </form>
   <!-- Hot Spot Analysis button -->
   <button class="analysis-button" onclick="redirectToAnalysis()">熱點分析</button>
 
-  <footer>網頁製作人: 康嘉麟</footer>
+  <footer>網頁製作人: <a href="https://che.ccu.edu.tw/p/405-1103-60621,c1154.php?Lang=zh-tw" target="_blank" rel="noopener">康嘉麟教授(中正大學化工系)</a></footer>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
+  <script src="assets/js/app-config.js?v=20260809-5"></script>
+  <script src="assets/js/date-utils.js"></script>
+  <script src="assets/js/weather-client.js"></script>
+  <script src="assets/js/submission-client.js?v=20260809-3"></script>
+  <script src="assets/js/map-loader.js?v=20260809" defer></script>
+  <script src="assets/js/report-form.js?v=20260809-10" defer></script>
+  <script src="assets/js/voice-assistant.js?v=20260809-1" defer></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       setDefaultTime();
+      generateReportDescription();
       document.getElementById('smellForm').addEventListener('submit', handleFormSubmit);
-      fetchUserIP();
+      ['reporterName', 'reporterPhone', 'reporterEmail', 'reporterAddress', 'reporterConsent', 'officialSubmissionConfirmed']
+        .map(id => document.getElementById(id))
+        .filter(Boolean)
+        .forEach(element => {
+          element.addEventListener('input', updateSubmissionChecklist);
+          element.addEventListener('change', updateSubmissionChecklist);
+        });
+      document.getElementById('officialReviewCopy')?.addEventListener('click', () => {
+        document.getElementById('copyReportPacket')?.click();
+      });
+      document.getElementById('officialCaptchaInput')?.addEventListener('input', updateCaptchaSubmitButton);
+      document.getElementById('officialCaptchaSubmit')?.addEventListener('click', handleCaptchaFinalize);
+      document.getElementById('officialCaptchaRestart')?.addEventListener('click', handleCaptchaRestart);
+      document.getElementById('simulationCheck')?.addEventListener('change', (event) => {
+        document.getElementById('simulationConfirm').disabled = !event.target.checked;
+      });
+      document.getElementById('simulationBack')?.addEventListener('click', () => {
+        setOfficialSimulationVisible(false);
+        document.getElementById('reportDescription')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      document.getElementById('simulationConfirm')?.addEventListener('click', () => {
+        document.getElementById('simulationStatus').textContent = '測試模擬完成：本次沒有送出真實環境部案件。';
+        document.getElementById('simulationConfirm').disabled = true;
+      });
+      updateSubmissionChecklist();
+      loadGoogleMaps(initMap).catch(() => {
+        document.getElementById('locationMessage').textContent = '地圖尚未啟用，請聯絡系統管理者。';
+      });
     });
 
     function setDefaultTime() {
       const dateInput = document.getElementById('smellTime');
-      const now = new Date();
-      const localISOTime = new Date(now - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-      dateInput.value = localISOTime;
+      dateInput.value = window.APP_DATE.nowInputValue();
     }
+
 
     let map, marker, currentPosition;
     let selectedGrid = null;
     let isSubmitted = false;
-    let userIP = '';
+    let isSubmitting = false;
+    let isFinalizingOfficial = false;
+    let officialCaptchaSessionId = '';
+    let officialCaptchaExpiresAt = 0;
+    let officialCaptchaTimer = null;
     const arrowOverlays = [];
     const gridCells = [];
     const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心座標
 
+    function updateSubmissionChecklist() {
+      const setItem = (id, ready, readyText, pendingText) => {
+        const element = document.getElementById(id);
+        if (!element) return;
+        element.textContent = `${ready ? '✓' : '○'} ${ready ? readyText : pendingText}`;
+        element.classList.toggle('is-ready', ready);
+      };
+      const complaint = typeof window.getComplaintData === 'function' ? window.getComplaintData() : null;
+      const reporterComplete = typeof window.isReporterCompleteForOfficial === 'function'
+        ? window.isReporterCompleteForOfficial(complaint)
+        : false;
+      const consent = Boolean(document.getElementById('officialSubmissionConfirmed')?.checked);
+      const officialEndpointReady = Boolean(window.APP_CONFIG?.officialPrepareEndpoint && window.APP_CONFIG?.officialFinalizeEndpoint);
+      const officialReady = Boolean(currentPosition && reporterComplete && consent && officialEndpointReady);
+      setItem('checkLocation', Boolean(currentPosition), '定位完成', '先完成定位');
+      setItem('checkReporter', reporterComplete, '環境部個資完整', '環境部個資未完成');
+      setItem('checkConsent', consent, '環境部已確認', '勾選環境部確認');
+
+      const submitButton = document.getElementById('submitButton');
+      const submitModeHint = document.getElementById('submitModeHint');
+      const mode = !currentPosition
+        ? 'location-required'
+        : officialReady
+          ? 'platform-and-environment'
+          : 'platform-only';
+      if (submitButton) {
+        submitButton.dataset.submissionMode = mode;
+        submitButton.disabled = Boolean(isSubmitted || isSubmitting || window.officialAttachmentsProcessing || !currentPosition);
+        if (!isSubmitted && !isSubmitting) {
+          submitButton.textContent = window.officialAttachmentsProcessing
+            ? '正在處理附件…'
+            : mode === 'location-required'
+            ? '請先完成定位'
+            : mode === 'platform-and-environment'
+              ? '送出平台紀錄＋環境部填單'
+              : '送出平台紀錄';
+        }
+      }
+      if (submitModeHint) {
+        submitModeHint.textContent = mode === 'location-required'
+          ? '尚未完成定位，請先選擇通報位置；完成定位後才可送出平台紀錄。'
+          : mode === 'platform-and-environment'
+            ? '已完成定位、環境部個資與確認；按下後會送出平台紀錄，並啟動環境部填單。'
+            : !reporterComplete
+              ? '環境部個資未完成；目前按下只會送出平台紀錄，不會送出環境部。若要送出環境部，請填妥四項個資。'
+              : !consent
+                ? '目前按下只會送出平台紀錄，不會送出環境部；若要送出環境部，請勾選環境部確認。'
+                : '環境部填單服務尚未啟用；目前按下只會送出平台紀錄。';
+      }
+    }
+    window.refreshSubmissionChecklist = updateSubmissionChecklist;
+
+    function setOfficialReviewPanelVisible(visible, pageUrl) {
+      const panel = document.getElementById('officialReviewPanel');
+      if (!panel) return;
+      panel.hidden = !visible;
+      if (!visible) return;
+      const link = document.getElementById('officialReviewLink');
+      if (link && typeof pageUrl === 'string' && pageUrl.startsWith('https://ww3.moenv.gov.tw/Public/')) {
+        link.href = pageUrl;
+      }
+      requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+
+    function clearOfficialCaptchaTimer() {
+      if (officialCaptchaTimer) window.clearInterval(officialCaptchaTimer);
+      officialCaptchaTimer = null;
+    }
+
+    function updateCaptchaSubmitButton() {
+      const button = document.getElementById('officialCaptchaSubmit');
+      const input = document.getElementById('officialCaptchaInput');
+      const field = document.getElementById('officialCaptchaField');
+      if (!button) return;
+      const captchaReady = field?.hidden || Boolean(input?.value.trim());
+      button.disabled = Boolean(isFinalizingOfficial || !officialCaptchaSessionId || !captchaReady || Date.now() >= officialCaptchaExpiresAt);
+    }
+
+    function updateCaptchaExpiry() {
+      const expiry = document.getElementById('officialCaptchaExpiry');
+      const restart = document.getElementById('officialCaptchaRestart');
+      const status = document.getElementById('officialCaptchaStatus');
+      const remainingSeconds = Math.max(0, Math.ceil((officialCaptchaExpiresAt - Date.now()) / 1000));
+      if (expiry) expiry.textContent = remainingSeconds > 0
+        ? `安全工作階段將於 ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')} 後自動清除。`
+        : '安全工作階段已過期。';
+      if (remainingSeconds <= 0) {
+        clearOfficialCaptchaTimer();
+        if (restart) restart.hidden = false;
+        if (status) status.textContent = '工作階段已過期，請重新準備環境部表單。';
+      }
+      updateCaptchaSubmitButton();
+    }
+
+    function setOfficialCaptchaPanelVisible(visible, result) {
+      const panel = document.getElementById('officialCaptchaPanel');
+      if (!panel) return;
+      panel.hidden = !visible;
+      if (!visible) {
+        clearOfficialCaptchaTimer();
+        return;
+      }
+      officialCaptchaSessionId = result?.sessionId || officialCaptchaSessionId;
+      officialCaptchaExpiresAt = Date.parse(result?.expiresAt || '') || (Date.now() + Number(result?.expiresInSeconds || 300) * 1000);
+      const hasCaptcha = result?.status === 'captcha_required';
+      const title = document.getElementById('official-captcha-title');
+      const instructions = document.getElementById('officialCaptchaInstructions');
+      const imageWrap = document.getElementById('officialCaptchaImageWrap');
+      const image = document.getElementById('officialCaptchaImage');
+      const field = document.getElementById('officialCaptchaField');
+      const input = document.getElementById('officialCaptchaInput');
+      const submit = document.getElementById('officialCaptchaSubmit');
+      const restart = document.getElementById('officialCaptchaRestart');
+      const status = document.getElementById('officialCaptchaStatus');
+      if (imageWrap) imageWrap.hidden = !hasCaptcha;
+      if (field) field.hidden = !hasCaptcha;
+      if (title) title.textContent = hasCaptcha ? '最後一步：輸入環境部驗證碼' : '下一步：取得環境部驗證碼';
+      if (instructions) instructions.textContent = hasCaptcha
+        ? 'Google Cloud 已完成表單資料填寫。請由本人辨識並輸入下方 CAPTCHA；系統不會使用 OCR 或 LLM 自動破解。'
+        : 'Google Cloud 已完成前三階段資料填寫，但環境部尚未送出。按下方按鈕只會前往驗證碼頁。';
+      if (image && result?.captchaImage) image.src = result.captchaImage;
+      if (input) input.value = '';
+      if (submit) submit.textContent = hasCaptcha ? '輸入驗證碼並正式送出環境部陳情' : '取得環境部驗證碼';
+      if (restart) restart.hidden = true;
+      if (status) status.textContent = hasCaptcha
+        ? '尚未正式送出。輸入驗證碼並按下按鈕後，Cloud Run 才會完成環境部送出。'
+        : '此階段尚未正式送出環境部陳情。';
+      clearOfficialCaptchaTimer();
+      officialCaptchaTimer = window.setInterval(updateCaptchaExpiry, 1000);
+      updateCaptchaExpiry();
+      if (hasCaptcha) input?.focus();
+      requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+
+    async function prepareOfficialCaptchaFlow() {
+      const config = window.APP_CONFIG || {};
+      if (!config.officialPrepareEndpoint) throw new Error('環境部資料準備服務尚未設定');
+      const result = await prepareOfficialComplaint(getOfficialSubmissionPacket('prepare', currentPosition));
+      if (result.status === 'captcha_required' || result.status === 'ready_for_final_review') {
+        setOfficialReviewPanelVisible(false);
+        setOfficialSimulationVisible(false);
+        setOfficialCaptchaPanelVisible(true, result);
+        return result;
+      }
+      throw Object.assign(new Error('環境部資料準備未完成'), { code: result.code || 'PREPARE_FAILED', result });
+    }
+
+    async function handleCaptchaRestart() {
+      const status = document.getElementById('officialCaptchaStatus');
+      const restart = document.getElementById('officialCaptchaRestart');
+      if (restart) restart.disabled = true;
+      if (status) status.textContent = '重新準備環境部表單中，請稍候…';
+      try {
+        await prepareOfficialCaptchaFlow();
+      } catch (error) {
+        if (status) status.textContent = `重新準備失敗（${error.code || '網路錯誤'}），請稍後再試。`;
+      } finally {
+        if (restart) restart.disabled = false;
+      }
+    }
+
+    async function handleCaptchaFinalize() {
+      if (isFinalizingOfficial || !officialCaptchaSessionId) return;
+      const input = document.getElementById('officialCaptchaInput');
+      const status = document.getElementById('officialCaptchaStatus');
+      const button = document.getElementById('officialCaptchaSubmit');
+      const captchaText = input?.value.trim() || '';
+      const isCaptchaVisible = !document.getElementById('officialCaptchaField')?.hidden;
+      isFinalizingOfficial = true;
+      updateCaptchaSubmitButton();
+      if (button) button.textContent = isCaptchaVisible ? '環境部正式送出中…' : '正在取得環境部驗證碼…';
+      if (status) status.textContent = isCaptchaVisible
+        ? '正在同一個 Cloud Run 瀏覽器工作階段輸入驗證碼並正式送出…'
+        : '正在前往環境部驗證碼頁；此步驟尚未正式送出。';
+      try {
+        const result = await finalizeOfficialComplaint(officialCaptchaSessionId, captchaText);
+        if (result.status === 'captcha_required') {
+          setOfficialCaptchaPanelVisible(true, result);
+          const remaining = Number(result.attemptsRemaining);
+          if (status) status.textContent = !captchaText
+            ? '已取得環境部驗證碼。請辨識圖片並輸入；下一次按鈕才會正式送出。'
+            : Number.isFinite(remaining)
+              ? `驗證碼不正確或已更新，請依新圖片重新輸入（尚可嘗試 ${remaining} 次）。`
+              : '驗證碼不正確或已更新，請依新圖片重新輸入。';
+          return;
+        }
+        officialCaptchaSessionId = '';
+        clearOfficialCaptchaTimer();
+        if (result.status === 'submitted') {
+          if (status) status.textContent = '環境部陳情已完成送出。';
+          if (button) button.textContent = '環境部已送出';
+          document.getElementById('message').textContent = '平台紀錄與環境部陳情均已送出。';
+          return;
+        }
+        if (result.status === 'email_verification_required') {
+          if (status) status.textContent = '環境部表單已送出。您尚未完成報案，請至信箱收取認證信；若收件匣沒有看到，請檢查垃圾郵件。請由信中連結完成確認，直到取得案件編號後才算完成報案。';
+          if (button) button.textContent = '已送出，待信箱認證';
+          document.getElementById('message').textContent = '平台紀錄已送出；環境部表單已寄發認證信，若收件匣沒有看到請檢查垃圾郵件，並由信中連結完成認證。';
+          return;
+        }
+        setOfficialCaptchaPanelVisible(false);
+        setOfficialReviewPanelVisible(true, result.pageUrl);
+      } catch (error) {
+        if (error.code === 'CAPTCHA_SESSION_EXPIRED' || error.code === 'CAPTCHA_ATTEMPTS_EXCEEDED') {
+          officialCaptchaExpiresAt = 0;
+          updateCaptchaExpiry();
+          if (status) status.textContent = error.code === 'CAPTCHA_ATTEMPTS_EXCEEDED'
+            ? '驗證碼錯誤次數已達上限，請重新準備環境部表單。'
+            : '工作階段已過期，請重新準備環境部表單。';
+          return;
+        }
+        setOfficialCaptchaPanelVisible(false);
+        setOfficialReviewPanelVisible(true, error.result?.pageUrl);
+        document.getElementById('message').textContent = `環境部最後送出未完成（${error.code || '網路錯誤'}），請使用人工處理入口。`;
+      } finally {
+        isFinalizingOfficial = false;
+        updateCaptchaSubmitButton();
+      }
+    }
+
+    function setOfficialSimulationVisible(visible, complaint) {
+      const panel = document.getElementById('officialSimulationPanel');
+      if (!panel) return;
+      panel.hidden = !visible;
+      if (!visible) return;
+      const officialForm = complaint?.officialForm || {};
+      const reporter = complaint?.reporter || {};
+      document.getElementById('simulationTime').textContent = document.getElementById('smellTime')?.value || '--';
+      document.getElementById('simulationLocation').textContent = complaint?.locationAddress || '--';
+      document.getElementById('simulationPollutant').textContent = officialForm.pollutantName || '不明';
+      document.getElementById('simulationReporterName').textContent = reporter.name || '--';
+      document.getElementById('simulationReporterContact').textContent = [reporter.phone, reporter.email, reporter.address].filter(Boolean).join('｜') || '--';
+      document.getElementById('simulationReplyMethod').textContent = officialForm.replyMethod === 'email' ? 'Email回覆' : officialForm.replyMethod === 'phone' ? '電話回覆' : '書面回覆';
+      document.getElementById('simulationDescription').textContent = complaint?.description || '--';
+      document.getElementById('simulationCheck').checked = false;
+      document.getElementById('simulationConfirm').disabled = true;
+      document.getElementById('simulationStatus').textContent = '';
+      requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+
     function initMap() {
+      if (map) return;
       map = new google.maps.Map(document.getElementById('map'), {
         zoom: 17,  // increased zoom for better visibility of small grids
         center: center
@@ -166,6 +721,7 @@
     }
 
     function selectGrid(grid, bounds) {
+      document.getElementById('locationMessage').textContent = '';
       if (selectedGrid) {
         selectedGrid.setOptions({ fillColor: '#0000FF' });
       }
@@ -176,6 +732,7 @@
       const centerLat = (bounds.north + bounds.south) / 2;
       const centerLng = (bounds.east + bounds.west) / 2;            
       placeMarkerAndPanTo({lat: centerLat, lng: centerLng});
+      getAddress(centerLat, centerLng);
       getWeather(centerLat, centerLng);
     }
 
@@ -190,6 +747,8 @@
       }
       map.panTo(latLng);
       currentPosition = latLng;
+      window.smellLoggerSelectedPosition = { lat: Number(latLng.lat), lng: Number(latLng.lng) };
+      updateSubmissionChecklist();
     }
 
     function removeExistingArrows() {
@@ -198,6 +757,7 @@
     }
 
     function drawArrow(latLng, windSpeed, windDirection) {
+      if (!Number.isFinite(windDirection)) return;
       const adjustedDirection = (windDirection + 180) % 360;
 
       const arrowDiv = document.createElement('div');
@@ -216,7 +776,7 @@
         arrowDiv.style.top = `${position.y}px`;
       };
       overlay.onRemove = function() {
-        arrowDiv.parentNode.removeChild(arrowDiv);
+        if (arrowDiv.parentNode) arrowDiv.parentNode.removeChild(arrowDiv);
       };
       overlay.setMap(map);
       
@@ -224,24 +784,12 @@
     }
 
     function getWeather(lat, lon) {
-      const apiKey = 'b142facd0784f0961a51dc355befed53';
-      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
-
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          const weather = data.weather[0].description;
-          const temperature = data.main.temp;
-          const windSpeed = data.wind.speed;
-          const windDirection = data.wind.deg;
-          const weatherInfo = document.getElementById('weatherInfo');
-          weatherInfo.querySelector('.weather-description').innerText = `氣象狀態: ${weather}`;
-          weatherInfo.querySelector('.temperature').innerText = `溫度: ${temperature}°C`;
-          weatherInfo.querySelector('.wind-speed').innerText = `風速: ${windSpeed} m/s`;
-          weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;
-
+      fetchCurrentWeather(lat, lon)
+        .then(weather => {
+          renderWeatherInfo('weatherInfo', weather);
+          if (window.refreshReportDescriptionIfPristine) window.refreshReportDescriptionIfPristine();
           removeExistingArrows(); 
-          drawArrow({ lat, lng: lon }, windSpeed, windDirection);
+          drawArrow({ lat, lng: lon }, weather.windSpeed, weather.windDirection);
         })
         .catch(error => {
           console.error('取得天氣資料時出錯: ', error);
@@ -249,102 +797,98 @@
     }
     
     function getWeather_suspect(lat, lon) {
-      const apiKey = 'b142facd0784f0961a51dc355befed53';
-      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
-
-      fetch(url)
-        .then(response => response.json())
-        .then(data => {
-          const weather = data.weather[0].description;
-          const temperature = data.main.temp;
-          const windSpeed = data.wind.speed;
-          const windDirection = data.wind.deg;
-          const weatherInfo = document.getElementById('weatherInfo_suspect');
-          weatherInfo.querySelector('.weather-description').innerText = `氣象狀態: ${weather}`;
-          weatherInfo.querySelector('.temperature').innerText = `溫度: ${temperature}°C`;
-          weatherInfo.querySelector('.wind-speed').innerText = `風速: ${windSpeed} m/s`;
-          weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;          
+      fetchCurrentWeather(lat, lon)
+        .then(weather => {
+          renderWeatherInfo('weatherInfo_suspect', weather);
         })
         .catch(error => {
           console.error('取得天氣資料時出錯: ', error);
         });
     }
 
-    function handleFormSubmit(event) {
+    async function handleFormSubmit(event) {
       event.preventDefault();
 
-      if (isSubmitted) {
+      if (isSubmitted || isSubmitting) {
         alert('請勿重複送出同一筆資料！');
+        return;
+      }
+
+      if (!currentPosition) {
+        alert('請先在地圖上點選一個位置!');
         return;
       }
 
       const smellLevel = document.querySelector('input[name="smellLevel"]:checked').value;
       const smellTime = document.getElementById('smellTime').value;
-
-      const weatherInfoDiv = document.getElementById('weatherInfo');
-      const weatherInfo = {
-        weather: weatherInfoDiv.querySelector('.weather-description').innerText,
-        temperature: parseFloat(weatherInfoDiv.querySelector('.temperature').innerText.split(' ')[1]),
-        windSpeed: parseFloat(weatherInfoDiv.querySelector('.wind-speed').innerText.split(' ')[1]),
-        windDirection: parseInt(weatherInfoDiv.querySelector('.wind-direction').innerText.split(' ')[1])
-      };
-      const weatherInfoDiv_suspect = document.getElementById('weatherInfo_suspect');
-      const weatherInfo_suspect = {
-        weather: weatherInfoDiv_suspect.querySelector('.weather-description').innerText,
-        temperature: parseFloat(weatherInfoDiv_suspect.querySelector('.temperature').innerText.split(' ')[1]),
-        windSpeed: parseFloat(weatherInfoDiv_suspect.querySelector('.wind-speed').innerText.split(' ')[1]),
-        windDirection: parseInt(weatherInfoDiv_suspect.querySelector('.wind-direction').innerText.split(' ')[1])
-      };
+      const complaint = getComplaintData();
+      updateSubmissionChecklist();
 
       const submitButton = document.getElementById('submitButton');
-      submitButton.innerText = '送出中...';
-
-      if (currentPosition) {
-        const data = {
-          lat: currentPosition.lat,
-          lng: currentPosition.lng,
-          smellLevel: parseInt(smellLevel),
-          smellTime: smellTime,
-          weatherInfo: weatherInfo,
-          weatherInfo_suspect: weatherInfo_suspect,
-          userIP: userIP
-        };
-
-        console.log('資料已送出:', JSON.stringify(data));
-
-        fetch('https://script.google.com/macros/s/AKfycbxDUbvowZycUgty9RTEdl2JTddO5rwUu2Yemfz9QWSsvD26xLeSWsX2_I7vR6RK1Abu/exec', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-          mode: 'no-cors'
-        })
-        .then(() => {
-          isSubmitted = true;
-          submitButton.innerText = '送出';
-          document.getElementById('message').innerText = '感謝您的送出！';
-        })
-        .catch(() => {
-          submitButton.innerText = '送出';
-          alert('送出發生錯誤，請檢查網路或伺服器設定');
-        });
-      } else {
-        submitButton.innerText = '送出';
-        alert('請先在地圖上點選一個位置!');
+      const data = {
+        lat: currentPosition.lat,
+        lng: currentPosition.lng,
+        smellLevel: parseInt(smellLevel, 10),
+        smellTime,
+        weatherInfo: readWeatherInfo('weatherInfo'),
+        weatherInfo_suspect: readWeatherInfo('weatherInfo_suspect'),
+        complaint: getPlatformComplaintData()
+      };
+      isSubmitting = true;
+      setOfficialReviewPanelVisible(false);
+      submitButton.disabled = true;
+      submitButton.textContent = '送出中...';
+      try {
+        const result = await submitRecord(data);
+        isSubmitted = true;
+        const reporterComplete = typeof window.isReporterCompleteForOfficial === 'function'
+          ? window.isReporterCompleteForOfficial(complaint)
+          : false;
+        const config = window.APP_CONFIG || {};
+        const officialReady = Boolean(complaint.officialSubmissionConfirmed && reporterComplete && config.officialPrepareEndpoint && config.officialFinalizeEndpoint);
+        let officialText = !reporterComplete
+          ? '本次只送出平台紀錄；環境部個資未完成，因此不送出環境部。'
+          : !complaint.officialSubmissionConfirmed
+            ? '本次只送出平台紀錄；尚未勾選環境部確認，因此不送出環境部。'
+            : !(config.officialPrepareEndpoint && config.officialFinalizeEndpoint)
+              ? '本次只送出平台紀錄；環境部填單服務尚未啟用。'
+              : '請至環境部系統確認正式提交。';
+        if (officialReady) {
+          try {
+            if (config.officialSubmissionMode === 'prepare') {
+              setOfficialReviewPanelVisible(false);
+              setOfficialSimulationVisible(true, complaint);
+              officialText = '已進入測試模擬確認畫面（不會送出真實案件）。';
+            } else {
+              const officialResult = await prepareOfficialCaptchaFlow();
+              officialText = officialResult.status === 'captcha_required'
+                ? '環境部表單已填到最後 CAPTCHA，請在下方輸入驗證碼並確認送出。'
+                : '環境部表單前三階段已準備完成，但尚未正式送出；請在下方取得驗證碼。';
+            }
+          } catch (officialError) {
+            console.warn('環境部資料準備服務未完成：', officialError);
+            setOfficialCaptchaPanelVisible(false);
+            setOfficialSimulationVisible(false);
+            setOfficialReviewPanelVisible(true);
+            officialText = officialError.name === 'AbortError'
+              ? '環境部資料準備逾時，平台紀錄仍已送出；請使用下方人工確認入口完成提交。'
+              : `環境部資料準備未完成（${officialError.code || '網路錯誤'}），平台紀錄仍已送出；請使用下方人工確認入口完成提交。`;
+          }
+        } else if (complaint.officialSubmissionConfirmed && !reporterComplete) {
+          officialText = '平台紀錄已送出；具名資料不完整，未啟動環境部填單。請確認聯絡地址包含縣市與鄉鎮市區，例如「雲林縣斗六市○○路1號」。';
+        }
+        document.getElementById('message').textContent = result.confirmed
+          ? `臭味紀錄已送出；${officialText}`
+          : `臭味紀錄請求已送出；瀏覽器目前無法驗證伺服器是否保存。${officialText}`;
+      } catch (error) {
+        const message = error.name === 'AbortError' ? '送出逾時，請稍後再試。' : '送出發生錯誤，請檢查網路或伺服器設定。';
+        document.getElementById('message').textContent = message;
+        alert(message);
+      } finally {
+        isSubmitting = false;
+        submitButton.disabled = isSubmitted;
+        submitButton.textContent = isSubmitted ? '已送出' : '送出';
       }
-    }
-
-    function fetchUserIP() {
-      fetch('https://api.ipify.org?format=json')
-        .then(response => response.json())
-        .then(data => {
-          userIP = data.ip;
-          console.log('User IP:', userIP);
-        })
-        .catch(error => {
-          console.error('取得IP時發生錯誤:', error);
-        });
     }
 
     function redirectToAnalysis() {
@@ -370,6 +914,7 @@
           withinRange = true;
           selectGrid(grid, bounds);
           getAddress(userLat, userLng);
+          updateSubmissionChecklist();
           break;
         }
       }
@@ -377,6 +922,7 @@
       if (!withinRange) {
         document.getElementById('locationMessage').innerText = "目前不在有效範圍內，煩請手動標記。";
         document.getElementById('address').innerText = "";
+        updateSubmissionChecklist();
       }
     }
 
@@ -397,19 +943,37 @@
       }
     }
 
+    function formatNearbyAddress(rawAddress) {
+      const clean = String(rawAddress || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/^\d{3,5}\s*/, '')
+        .replace(/^(?:台灣|臺灣)\s*/, '');
+      if (!clean) return 'GPS 定位點附近';
+      const houseNumber = clean.match(/[0-9０-９]+號(?:之[0-9０-９]+)?/);
+      const floor = clean.search(/[0-9０-９]+\s*(?:樓|F)\b/i);
+      let base = houseNumber
+        ? clean.slice(0, houseNumber.index + houseNumber[0].length)
+        : (floor >= 0 ? clean.slice(0, floor) : clean);
+      base = base.replace(/[，,、\s]+$/, '').replace(/\s*附近$/, '');
+      return `${base || 'GPS 定位點'}附近`;
+    }
+
     function getAddress(lat, lng) {
       const geocoder = new google.maps.Geocoder();
       const latLng = new google.maps.LatLng(lat, lng);
       geocoder.geocode({'location': latLng}, function(results, status) {
         if (status === 'OK') {
           if (results[0]) {
-            document.getElementById('address').innerText = `地址: ${results[0].formatted_address}`;
+            document.getElementById('address').textContent = `地址: ${formatNearbyAddress(results[0].formatted_address)}`;
           } else {
-            document.getElementById('address').innerText = "沒有找到相應的地址";
+            document.getElementById('address').textContent = `地址: GPS 定位點（${lat.toFixed(5)}, ${lng.toFixed(5)}）附近`;
           }
         } else {
-          document.getElementById('address').innerText = `反向地理編譯失敗: ${status}`;
+          document.getElementById('address').textContent = `地址: GPS 定位點（地址查詢失敗：${status}）附近`;
         }
+        if (window.refreshReportDescriptionIfPristine) window.refreshReportDescriptionIfPristine();
+        updateSubmissionChecklist();
       });
     }
   </script>

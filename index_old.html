@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>臭味標記地圖</title>
+  <style>
+    #map {
+      height: 500px;
+      width: 100%;
+    }
+    #locationMessage {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    #info {
+      margin-bottom: 10px;
+    }
+    #message {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    #weatherInfo_suspect {
+      display:none;
+    }
+    .arrow {
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-bottom: 20px solid red;
+      position: absolute;
+      transform-origin: bottom;
+    }
+    .analysis-button {
+      margin: 10px 0;
+      padding: 10px 15px;
+      background-color: #007BFF; /* Blue color */
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .analysis-button:hover {
+      background-color: #0056b3; /* Darker blue on hover */
+    }
+    footer {
+      margin-top: 20px;
+      text-align: center;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h3>標記臭味位置</h3>
+  <div id="info">
+    <p id="userLocation"></p>
+    <p id="address"></p>
+    <p id="locationMessage"></p>
+    <div id="weatherInfo">
+      <p class="weather-description"></p>
+      <p class="temperature"></p>
+      <p class="wind-speed"></p>
+      <p class="wind-direction"></p>
+    </div>   
+  </div>
+  <div id="weatherInfo_suspect">
+     <p class="weather-description"></p>
+     <p class="temperature"></p>
+     <p class="wind-speed"></p>
+     <p class="wind-direction"></p>
+  </div>
+  
+  <form id="smellForm">
+    <div class="options">
+      <label>臭味程度:</label>
+      <label><input type="radio" name="smellLevel" value="1" required> 1(略有臭味)</label>
+      <label><input type="radio" name="smellLevel" value="2" required> 2(輕微臭味)</label>
+      <label><input type="radio" name="smellLevel" value="3" required> 3(明顯臭味)</label>
+      <label><input type="radio" name="smellLevel" value="4" required checked> 4(強烈刺鼻臭味)</label>
+      <label><input type="radio" name="smellLevel" value="5" required> 5(令人噁心窒息)</label>
+    </div>
+    <br>
+    <label for="smellTime">聞到的時間:</label>
+    <input id="smellTime" type="datetime-local" name="smellTime" required disabled>
+    <br>
+    <button class="analysis-button" type="submit" id="submitButton">送出</button>    
+    <p id="message"></p>
+
+    <div id="map"></div>
+    
+    
+  </form>
+  <!-- Hot Spot Analysis button -->
+  <button class="analysis-button" onclick="redirectToAnalysis()">熱點分析</button>
+
+  <footer>網頁製作人: 康嘉麟</footer>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&callback=initMap" async defer></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      setDefaultTime();
+      document.getElementById('smellForm').addEventListener('submit', handleFormSubmit);
+      fetchUserIP();
+    });
+
+    function setDefaultTime() {
+      const dateInput = document.getElementById('smellTime');
+      const now = new Date();
+      const localISOTime = new Date(now - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+      dateInput.value = localISOTime;
+    }
+
+    let map, marker, currentPosition;
+    let selectedGrid = null;
+    let isSubmitted = false;
+    let userIP = '';
+    const arrowOverlays = [];
+    const gridCells = [];
+    const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心座標
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 17,  // increased zoom for better visibility of small grids
+        center: center
+      });
+
+      const metersInLatitudeDegree = 111320; // approximate meters in a latitude degree
+      const metersInLongitudeDegree = 111320 * Math.cos(center.lat * Math.PI / 180); // approximate meters in a longitude degree
+      
+      const gridSize = 100; // 100 meters per grid
+
+      const halfGridCount = Math.floor(39 / 2); // create a half-grid count to offset the grid placement
+
+      for (let i = -halfGridCount; i <= halfGridCount; i++) {
+        for (let j = -halfGridCount; j <= halfGridCount; j++) {
+          const gridBounds = {
+            north: center.lat + ((i + 1) * gridSize / metersInLatitudeDegree),
+            south: center.lat + (i * gridSize / metersInLatitudeDegree),
+            east: center.lng + ((j + 1) * gridSize / metersInLongitudeDegree),
+            west: center.lng + (j * gridSize / metersInLongitudeDegree),
+          };
+
+          const grid = new google.maps.Rectangle({
+            strokeColor: '#0000FF',
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: '#0000FF',
+            fillOpacity: 0.1,
+            map: map,
+            bounds: gridBounds,
+          });
+
+          google.maps.event.addListener(grid, 'click', function() {
+            selectGrid(grid, gridBounds);
+          });
+
+          gridCells.push({grid: grid, bounds: gridBounds});
+        }
+      }
+      getWeather_suspect(center.lat, center.lng);
+      getLocation();
+    }
+
+    function selectGrid(grid, bounds) {
+      if (selectedGrid) {
+        selectedGrid.setOptions({ fillColor: '#0000FF' });
+      }
+      grid.setOptions({ fillColor: '#FF0000' });
+
+      selectedGrid = grid;
+
+      const centerLat = (bounds.north + bounds.south) / 2;
+      const centerLng = (bounds.east + bounds.west) / 2;            
+      placeMarkerAndPanTo({lat: centerLat, lng: centerLng});
+      getWeather(centerLat, centerLng);
+    }
+
+    function placeMarkerAndPanTo(latLng) {
+      if (marker) {
+        marker.setPosition(latLng);
+      } else {
+        marker = new google.maps.Marker({
+          position: latLng,
+          map: map
+        });
+      }
+      map.panTo(latLng);
+      currentPosition = latLng;
+    }
+
+    function removeExistingArrows() {
+      arrowOverlays.forEach(overlay => overlay.setMap(null)); 
+      arrowOverlays.length = 0; 
+    }
+
+    function drawArrow(latLng, windSpeed, windDirection) {
+      const adjustedDirection = (windDirection + 180) % 360;
+
+      const arrowDiv = document.createElement('div');
+      arrowDiv.className = 'arrow';
+      arrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
+      const overlay = new google.maps.OverlayView();
+
+      overlay.onAdd = function() {
+        const layer = this.getPanes().overlayLayer;
+        layer.appendChild(arrowDiv);
+      };
+      overlay.draw = function() {
+        const projection = this.getProjection();
+        const position = projection.fromLatLngToDivPixel(latLng);
+        arrowDiv.style.left = `${position.x}px`;
+        arrowDiv.style.top = `${position.y}px`;
+      };
+      overlay.onRemove = function() {
+        arrowDiv.parentNode.removeChild(arrowDiv);
+      };
+      overlay.setMap(map);
+      
+      arrowOverlays.push(overlay); 
+    }
+
+    function getWeather(lat, lon) {
+      const apiKey = 'b142facd0784f0961a51dc355befed53';
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          const weather = data.weather[0].description;
+          const temperature = data.main.temp;
+          const windSpeed = data.wind.speed;
+          const windDirection = data.wind.deg;
+          const weatherInfo = document.getElementById('weatherInfo');
+          weatherInfo.querySelector('.weather-description').innerText = `氣象狀態: ${weather}`;
+          weatherInfo.querySelector('.temperature').innerText = `溫度: ${temperature}°C`;
+          weatherInfo.querySelector('.wind-speed').innerText = `風速: ${windSpeed} m/s`;
+          weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;
+
+          removeExistingArrows(); 
+          drawArrow({ lat, lng: lon }, windSpeed, windDirection);
+        })
+        .catch(error => {
+          console.error('取得天氣資料時出錯: ', error);
+        });
+    }
+    
+    function getWeather_suspect(lat, lon) {
+      const apiKey = 'b142facd0784f0961a51dc355befed53';
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          const weather = data.weather[0].description;
+          const temperature = data.main.temp;
+          const windSpeed = data.wind.speed;
+          const windDirection = data.wind.deg;
+          const weatherInfo = document.getElementById('weatherInfo_suspect');
+          weatherInfo.querySelector('.weather-description').innerText = `氣象狀態: ${weather}`;
+          weatherInfo.querySelector('.temperature').innerText = `溫度: ${temperature}°C`;
+          weatherInfo.querySelector('.wind-speed').innerText = `風速: ${windSpeed} m/s`;
+          weatherInfo.querySelector('.wind-direction').innerText = `風向: ${windDirection}°`;          
+        })
+        .catch(error => {
+          console.error('取得天氣資料時出錯: ', error);
+        });
+    }
+
+    function handleFormSubmit(event) {
+      event.preventDefault();
+
+      if (isSubmitted) {
+        alert('請勿重複送出同一筆資料！');
+        return;
+      }
+
+      const smellLevel = document.querySelector('input[name="smellLevel"]:checked').value;
+      const smellTime = document.getElementById('smellTime').value;
+
+      const weatherInfoDiv = document.getElementById('weatherInfo');
+      const weatherInfo = {
+        weather: weatherInfoDiv.querySelector('.weather-description').innerText,
+        temperature: parseFloat(weatherInfoDiv.querySelector('.temperature').innerText.split(' ')[1]),
+        windSpeed: parseFloat(weatherInfoDiv.querySelector('.wind-speed').innerText.split(' ')[1]),
+        windDirection: parseInt(weatherInfoDiv.querySelector('.wind-direction').innerText.split(' ')[1])
+      };
+      const weatherInfoDiv_suspect = document.getElementById('weatherInfo_suspect');
+      const weatherInfo_suspect = {
+        weather: weatherInfoDiv_suspect.querySelector('.weather-description').innerText,
+        temperature: parseFloat(weatherInfoDiv_suspect.querySelector('.temperature').innerText.split(' ')[1]),
+        windSpeed: parseFloat(weatherInfoDiv_suspect.querySelector('.wind-speed').innerText.split(' ')[1]),
+        windDirection: parseInt(weatherInfoDiv_suspect.querySelector('.wind-direction').innerText.split(' ')[1])
+      };
+
+      const submitButton = document.getElementById('submitButton');
+      submitButton.innerText = '送出中...';
+
+      if (currentPosition) {
+        const data = {
+          lat: currentPosition.lat,
+          lng: currentPosition.lng,
+          smellLevel: parseInt(smellLevel),
+          smellTime: smellTime,
+          weatherInfo: weatherInfo,
+          weatherInfo_suspect: weatherInfo_suspect,
+          userIP: userIP
+        };
+
+        console.log('資料已送出:', JSON.stringify(data));
+
+        fetch('https://script.google.com/macros/s/AKfycbxDUbvowZycUgty9RTEdl2JTddO5rwUu2Yemfz9QWSsvD26xLeSWsX2_I7vR6RK1Abu/exec', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+          mode: 'no-cors'
+        })
+        .then(() => {
+          isSubmitted = true;
+          submitButton.innerText = '送出';
+          document.getElementById('message').innerText = '感謝您的送出！';
+        })
+        .catch(() => {
+          submitButton.innerText = '送出';
+          alert('送出發生錯誤，請檢查網路或伺服器設定');
+        });
+      } else {
+        submitButton.innerText = '送出';
+        alert('請先在地圖上點選一個位置!');
+      }
+    }
+
+    function fetchUserIP() {
+      fetch('https://api.ipify.org?format=json')
+        .then(response => response.json())
+        .then(data => {
+          userIP = data.ip;
+          console.log('User IP:', userIP);
+        })
+        .catch(error => {
+          console.error('取得IP時發生錯誤:', error);
+        });
+    }
+
+    function redirectToAnalysis() {
+      window.location.href = 'analysis_old.html';
+    }
+
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showPosition, showError);
+      } else {
+        document.getElementById('locationMessage').innerText = "目前不支援定位服務";
+      }
+    }
+
+    function showPosition(position) {
+      const userLat = position.coords.latitude;
+      const userLng = position.coords.longitude;
+      document.getElementById('userLocation').innerText = `您所在的位置: (${userLat.toFixed(5)}, ${userLng.toFixed(5)})`;
+
+      let withinRange = false;
+      for (const {grid, bounds} of gridCells) {
+        if (userLat >= bounds.south && userLat <= bounds.north && userLng >= bounds.west && userLng <= bounds.east) {
+          withinRange = true;
+          selectGrid(grid, bounds);
+          getAddress(userLat, userLng);
+          break;
+        }
+      }
+      
+      if (!withinRange) {
+        document.getElementById('locationMessage').innerText = "目前不在有效範圍內，煩請手動標記。";
+        document.getElementById('address').innerText = "";
+      }
+    }
+
+    function showError(error) {
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          document.getElementById('locationMessage').innerText = "使用者拒絕定位請求，煩請手動標記。";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          document.getElementById('locationMessage').innerText = "位置訊息不可用。";
+          break;
+        case error.TIMEOUT:
+          document.getElementById('locationMessage').innerText = "請求使用者地理位置超時。";
+          break;
+        case error.UNKNOWN_ERROR:
+          document.getElementById('locationMessage').innerText = "未知錯誤。";
+          break;
+      }
+    }
+
+    function getAddress(lat, lng) {
+      const geocoder = new google.maps.Geocoder();
+      const latLng = new google.maps.LatLng(lat, lng);
+      geocoder.geocode({'location': latLng}, function(results, status) {
+        if (status === 'OK') {
+          if (results[0]) {
+            document.getElementById('address').innerText = `地址: ${results[0].formatted_address}`;
+          } else {
+            document.getElementById('address').innerText = "沒有找到相應的地址";
+          }
+        } else {
+          document.getElementById('address').innerText = `反向地理編譯失敗: ${status}`;
+        }
+      });
+    }
+  </script>
+</body>
+</html>
