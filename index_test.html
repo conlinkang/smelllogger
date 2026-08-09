@@ -93,7 +93,7 @@
     .consent-field { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-weight: normal; line-height: 1.5; }
     .reporter-storage-note { margin: 10px 0 0; color: #526173; font-size: 0.9rem; }
     #reporterProfileStatus { color: #2f6b4f; font-size: 0.9rem; }
-    .submit-bar { position: sticky; bottom: 10px; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; padding: 8px; border: 1px solid #b9cde0; border-radius: 10px; background: rgba(255,255,255,.95); box-shadow: 0 6px 20px rgba(24,50,75,.14); backdrop-filter: blur(8px); }
+    .submit-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; padding: 8px; border: 1px solid #b9cde0; border-radius: 10px; background: rgba(255,255,255,.95); box-shadow: 0 6px 20px rgba(24,50,75,.14); }
     .submit-bar #submitButton { flex: 1 1 220px; margin: 0; min-height: 48px; font-size: 1.05rem; font-weight: 700; }
     .submit-bar #message { flex: 1 1 100%; margin: 0; }
     .official-review { margin-top: 8px; padding: 12px; border: 2px solid #d6a72c; border-radius: 10px; background: #fff9e6; color: #4c3b0b; }
@@ -129,7 +129,7 @@
       .report-actions a, .report-actions button, .generate-description { width: 100%; min-height: 42px; box-sizing: border-box; }
       .official-review-actions { display: grid; grid-template-columns: 1fr; }
       .official-review-actions a, .official-review-actions button { width: 100%; box-sizing: border-box; text-align: center; }
-      .submit-bar { bottom: calc(8px + env(safe-area-inset-bottom)); margin-left: -2px; margin-right: -2px; }
+      .submit-bar { margin-left: -2px; margin-right: -2px; }
       .submit-bar #submitButton { flex-basis: 100%; }
       footer { padding-bottom: 8px; font-size: .88rem; }
     }
@@ -170,36 +170,21 @@
   </div>
   
   <form id="smellForm">
-    <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton">送出平台紀錄＋官方填單</button><p id="message" role="status" aria-live="polite"></p></div>
-    <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
-      <h4 id="official-review-title">下一步：人工檢查並完成最後送出</h4>
-      <p>雲端服務已完成官方表單的資料準備，現在需要你在環境部網站檢查內容並按下官方表單的最後「送出」。</p>
-      <ol>
-        <li>按「開啟環境部公害陳情表單」。</li>
-        <li>按「複製完整通報資料」，依資料貼入官方表單並檢查。</li>
-        <li>在環境部表單最後確認後，按官方的「送出」按鈕。</li>
-      </ol>
-      <div class="official-review-actions">
-        <a id="officialReviewLink" class="primary" href="https://ww3.moenv.gov.tw/Public/Case_Add.aspx" target="_blank" rel="noopener">開啟環境部公害陳情表單</a>
-        <button type="button" id="officialReviewCopy">複製完整通報資料</button>
-      </div>
-      <p class="official-review-note">目前雲端虛擬瀏覽器與你的 Chrome 是不同工作階段，因此官方表單不會自動帶入；此區提供人工確認與快速複製資料。</p>
-    </section>
-    <div class="options">
-      <label>臭味程度:</label>
-      <label><input type="radio" name="smellLevel" value="1" required> 1(略有臭味)</label>
-      <label><input type="radio" name="smellLevel" value="2" required> 2(輕微臭味)</label>
-      <label><input type="radio" name="smellLevel" value="3" required> 3(明顯臭味)</label>
-      <label><input type="radio" name="smellLevel" value="4" required checked> 4(強烈刺鼻臭味)</label>
-      <label><input type="radio" name="smellLevel" value="5" required> 5(令人噁心窒息)</label>
-    </div>
-    <br>
     <label for="smellTime">聞到的時間:</label>
     <input id="smellTime" type="datetime-local" name="smellTime" required>
     <br>
     <section class="report-section" aria-labelledby="report-title">
       <h4 id="report-title">環境部通報資料（快速選擇）</h4>
       <p class="report-hint">選擇後會自動產生說明文字；內容仍可自行修改。正式通報前請確認資料正確。</p>
+      <section class="voice-assist" aria-labelledby="voice-title"><h5 id="voice-title">一句話語音輔助（選用）</h5><p class="report-hint">例如：「斗六市附近有很重的畜牧堆肥味，持續半小時。」語音只用來產生分類建議，套用後仍可自行修改。</p><div class="report-actions"><button type="button" id="voiceStartButton">開始語音分析</button><button type="button" id="voiceStopButton" hidden>停止錄音</button></div><p id="voiceStatus" class="report-hint" role="status"></p><p>辨識文字：<span id="voiceTranscript">尚未錄音</span></p><p id="voiceAcousticCue" class="reporter-storage-note">聲音表達強度：尚未分析（僅輔助，不等同臭味程度）</p><p class="reporter-storage-note">啟用後，短音訊會一次性送到 Google Cloud Speech-to-Text 與 Vertex AI 分析，不保存音訊；不建議在語音中說姓名、電話或地址。</p></section>
+      <div class="options">
+        <label>臭味程度:</label>
+        <label><input type="radio" name="smellLevel" value="1" required> 1(略有臭味)</label>
+        <label><input type="radio" name="smellLevel" value="2" required> 2(輕微臭味)</label>
+        <label><input type="radio" name="smellLevel" value="3" required> 3(明顯臭味)</label>
+        <label><input type="radio" name="smellLevel" value="4" required checked> 4(強烈刺鼻臭味)</label>
+        <label><input type="radio" name="smellLevel" value="5" required> 5(令人噁心窒息)</label>
+      </div>
       <fieldset class="moenv-fast-options">
         <legend>環境部異味情形快速分類</legend>
         <p class="report-hint">這些選項對應環境部異味陳情表單，先選最接近的情形即可。</p>
@@ -219,7 +204,7 @@
             <option value="fertilizeCompost" selected>施肥或堆肥</option>
           </select>
         </label>
-       </fieldset><section class="voice-assist" aria-labelledby="voice-title"><h5 id="voice-title">一句話語音輔助（選用）</h5><p class="report-hint">例如：「斗六市附近有很重的畜牧堆肥味，持續半小時。」語音只用來產生分類建議，套用後仍可自行修改。</p><div class="report-actions"><button type="button" id="voiceStartButton">開始語音分析</button><button type="button" id="voiceStopButton" hidden>停止錄音</button></div><p id="voiceStatus" class="report-hint" role="status"></p><p>辨識文字：<span id="voiceTranscript">尚未錄音</span></p><p id="voiceAcousticCue" class="reporter-storage-note">聲音表達強度：尚未分析（僅輔助，不等同臭味程度）</p><p class="reporter-storage-note">啟用後，短音訊會一次性送到 Google Cloud Speech-to-Text 與 Vertex AI 分析，不保存音訊；不建議在語音中說姓名、電話或地址。</p></section>
+       </fieldset>
       <div class="report-grid">
         <label class="report-field" for="odorType">異味類型
           <select id="odorType"><option value="chemical">化學溶劑或油漆味</option><option value="sulfur">硫磺或臭雞蛋味</option><option value="ammonia">氨味或尿味</option><option value="sewage">污水或腐敗味</option><option value="burning">燃燒或塑膠焦味</option><option value="oil">油煙或餐飲異味</option><option value="livestock" selected>畜牧或堆肥異味</option><option value="other">其他異味</option></select>
@@ -241,6 +226,21 @@
        <details class="report-details" open><summary>填單人資料（選填；具名陳情時使用）</summary><p class="reporter-storage-note">平台紀錄不需要個資。若要具名陳情，可在此填寫；勾選後只會記住在本機瀏覽器，平台與 Google Sheet 不會保存。</p><div class="report-grid"><label class="report-field" for="reporterName">姓名<input id="reporterName" type="text" autocomplete="name"></label><label class="report-field" for="reporterPhone">電話<input id="reporterPhone" type="tel" autocomplete="tel"></label><label class="report-field" for="reporterEmail">電子信箱<input id="reporterEmail" type="email" autocomplete="email"></label><label class="report-field" for="reporterAddress">聯絡地址<input id="reporterAddress" type="text" autocomplete="street-address" placeholder="例如：雲林縣斗六市○○路1號"><small class="reporter-storage-note">需包含縣市與鄉鎮市區，例如：雲林縣斗六市。</small></label></div><label class="consent-field"><input id="reporterConsent" type="checkbox"> 記住於本機，下次開啟網頁時自動帶入（不會上傳到平台）。</label><div class="report-actions"><button type="button" id="clearReporterProfile">清除本機填單資料</button><span id="reporterProfileStatus" role="status"></span></div></details>
     </section>
     <div id="map"></div>
+    <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton">送出平台紀錄＋官方填單</button><p id="message" role="status" aria-live="polite"></p></div>
+    <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
+      <h4 id="official-review-title">下一步：人工檢查並完成最後送出</h4>
+      <p>雲端服務已完成官方表單的資料準備，現在需要你在環境部網站檢查內容並按下官方表單的最後「送出」。</p>
+      <ol>
+        <li>按「開啟環境部公害陳情表單」。</li>
+        <li>按「複製完整通報資料」，依資料貼入官方表單並檢查。</li>
+        <li>在環境部表單最後確認後，按官方的「送出」按鈕。</li>
+      </ol>
+      <div class="official-review-actions">
+        <a id="officialReviewLink" class="primary" href="https://ww3.moenv.gov.tw/Public/Case_Add.aspx" target="_blank" rel="noopener">開啟環境部公害陳情表單</a>
+        <button type="button" id="officialReviewCopy">複製完整通報資料</button>
+      </div>
+      <p class="official-review-note">目前雲端虛擬瀏覽器與你的 Chrome 是不同工作階段，因此官方表單不會自動帶入；此區提供人工確認與快速複製資料。</p>
+    </section>
     
     
   </form>

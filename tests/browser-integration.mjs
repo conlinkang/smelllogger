@@ -92,7 +92,9 @@ try {
   const namedState = { baseUrl, platformPayload: null, officialPayload: null };
   const named = await openIndex(browser, namedState);
   const namedButtonBox = await named.page.locator('#submitButton').boundingBox();
-  assert.ok(namedButtonBox && namedButtonBox.y >= 0 && namedButtonBox.y + namedButtonBox.height <= 844, 'submit button must be visible on mobile first screen');
+  assert.ok(namedButtonBox && namedButtonBox.y >= 0, 'submit button must be rendered at the end of the form');
+  await named.page.locator('#submitButton').scrollIntoViewIfNeeded();
+  assert.equal(await named.page.locator('#submitButton').isVisible(), true, 'submit button must be reachable after reviewing the form');
   await named.page.locator('#reporterName').fill('integration-test');
   await named.page.locator('#reporterPhone').fill('0900000000');
   await named.page.locator('#reporterEmail').fill('integration@example.com');
