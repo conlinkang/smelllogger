@@ -112,7 +112,7 @@ flowchart TD
 - 使用 Cloud Run service identity 與最小 IAM 權限。
 - 設定正式網站 CORS、請求大小上限、逾時與速率限制。
 - 不記錄 request body、不保存截圖、不保存音訊、不建立個資資料庫。
-- 預設 `mode=prepare`；完成穩定性與責任確認後才可啟用 `mode=submit`。
+- 支援 `mode=prepare` 與 `mode=submit`；正式環境已啟用 `submit`，但仍受服務端精確開關與具名確認條件保護。
 - 官方最終送出必須同時具備明確勾選、完整具名資料與一次性確認文字。
 
 部署閘門：
@@ -121,7 +121,7 @@ flowchart TD
 - 帳號必須完成 Google Cloud 要求的兩步驟驗證。
 - 啟用 Cloud Run、Artifact Registry、Cloud Build、Speech-to-Text、Vertex AI API。
 - 建立專用服務帳號，不把服務帳號金鑰放入前端或 repository。
-- 先部署 prepare-only 版本並以健康檢查、假資料、錯誤流程驗證。
+- 先以 prepare-only 與本機攔截測試驗證；正式環境不以假資料呼叫最後送出，以免建立誤報案件。
 
 ### Phase 5：一句話語音與 LLM 分類
 
@@ -176,9 +176,9 @@ flowchart TD
 - Phase 1：大部分完成；製作人名稱與官方輔助填單備註列入下一個小變更。
 - Phase 2：完成第一版雲林縣預設篩選與統計資料欄位。
 - Phase 3：完成；已用官方目前頁面實測 selector，並以假資料走過第一至第三階段。
-- Phase 4：完成第一版部署與驗證；Cloud Run revision `smelllogger-runner-00006-hfk` 維持 prepare-only，假資料回傳 `READY_FOR_FINAL_REVIEW`，正式送出仍關閉。
+- Phase 4：完成部署與驗證；Cloud Run revision `smelllogger-runner-00007-dfq` 已啟用正式送出，`/health` 回傳 `officialSubmitEnabled:true`，CAPTCHA 與未確認結果仍回到 `manual_required`。
 - Phase 5：完成前端與 Cloud Run 語音流程；Speech-to-Text 使用 `default` 支援 `zh-TW`，已用不含個資的測試句完成轉寫與 Vertex AI 結構化分類。
-- Phase 6：前端已接上 Cloud Run `/submit` 與 `/analyze-voice`，但 GitHub Pages 尚未發佈本地變更，正式上線驗證尚未完成。
+- Phase 6：前端已接上 Cloud Run `/submit` 與 `/analyze-voice`，測試版本已切換 `officialSubmissionMode=submit`；GitHub Pages 發佈後仍需進行人工監看驗收。
 - Phase 7：尚未完成。
 
 ## 每次迭代固定流程
