@@ -22,7 +22,7 @@
 - 說明文字會附註：`本通報由 https://conlinkang.github.io/smelllogger/index.html 輔助填單。`
 - `official-form-runner/` 已用真實官方表單，以假資料完成第一至第三階段的本機 Playwright prepare 端到端測試；測試回傳 `202 READY_FOR_FINAL_REVIEW`，未送出案件。正式送出不使用假資料測試。
 - 已加入可選語音流程：Google Cloud Speech-to-Text 轉寫，Vertex AI Gemini 只回傳既有選項的候選分類；前端規則式說明文字仍是最後來源。
-- Cloud Run 已部署並完成驗證；目前 revision 為 `smelllogger-runner-00008-bb2`，服務網址為 `https://smelllogger-runner-442879625893.asia-east1.run.app`。`/health` 回傳 `officialSubmitEnabled:true`、`captchaRelayEnabled:true`、300 秒期限與 3 次 CAPTCHA 上限。
+- Cloud Run 已部署並完成驗證；目前 revision 為 `smelllogger-runner-00009-m5c`，服務網址為 `https://smelllogger-runner-442879625893.asia-east1.run.app`。`/health` 回傳 `officialSubmitEnabled:true`、`captchaRelayEnabled:true`、300 秒期限與 3 次 CAPTCHA 上限。
 
 ## Cloud Run 自動填單流程
 
