@@ -5,17 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>臭味熱點分析</title>
   <style>
+    :root { color-scheme: light; --ink: #18324b; --muted: #5d7186; --surface: #ffffff; --surface-soft: #f5f9fd; --line: #dbe5ef; --accent: #1769aa; --accent-dark: #0d4775; }
+    body { max-width: 1240px; margin: 0 auto; padding: 22px clamp(14px, 3vw, 36px) 32px; color: var(--ink); background: #edf4fa; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5; }
+    h3 { margin: 0 0 14px; font-size: clamp(1.4rem, 3vw, 2rem); }
     #map {
       height: 600px;
       width: 100%;
       margin-bottom: 20px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #dceaf5;
     }
-    .controls {
-      margin-bottom: 20px;
-    }
-    .control-item {
-      margin-right: 15px;
-    }
+    .map-message { display: grid; place-items: center; height: 100%; padding: 24px; color: var(--muted); text-align: center; }
+    .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin-bottom: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    .control-item { margin-right: 0; }
+    .controls label { display: grid; gap: 4px; font-weight: 600; }
+    .controls select, .controls input { min-height: 38px; padding: 7px 9px; border: 1px solid #b8c6d8; border-radius: 7px; background: #fff; font: inherit; }
+    .dashboard-summary { display: grid; gap: 14px; margin-bottom: 18px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .kpi-card { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    .kpi-card span { display: block; color: var(--muted); font-size: 0.9rem; }
+    .kpi-card strong { display: block; margin-top: 4px; color: var(--accent-dark); font-size: 1.6rem; }
+    #summaryText { margin: 0; color: var(--muted); }
+    #trendChart { min-height: 220px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow-x: auto; }
+    #trendChart svg { display: block; width: 100%; min-width: 620px; height: 220px; }
+    .chart-gridline { stroke: #dbe5ef; stroke-width: 1; }
+    .chart-line { fill: none; stroke: #1769aa; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .chart-point { fill: #fff; stroke: #1769aa; stroke-width: 2; }
+    .chart-label { fill: #5d7186; font-size: 11px; }
+    .chart-empty { color: var(--muted); text-align: center; }
     .arrow {
       width: 0;
       height: 0;
@@ -96,13 +115,13 @@
       margin-right: 5px;
     }
     .low-intensity {
-      background-color: rgba(0, 255, 0, 0.6);
+      background-color: #2a9d8f;
     }
     .medium-intensity {
-      background-color: rgba(255, 255, 0, 0.6);
+      background-color: #f4a261;
     }
     .high-intensity {
-      background-color: rgba(255, 0, 0, 0.6);
+      background-color: #e76f51;
     }
     .return-button {
       margin: 10px 0;
@@ -116,49 +135,95 @@
     .return-button:hover {
       background-color: #0056b3;
     }
+    .timebar-section { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    .timebar-title { margin: 0; font-weight: 700; }
+    .timebar-hint { margin: 2px 0 8px; color: var(--muted); font-size: .9rem; }
+    .timebar-scroll { overflow-x: auto; padding: 2px 2px 8px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
     #colorBarContainer {
       position: relative;
       width: 100%;
-      height: 20px;
-      background: linear-gradient(to right, blue, red);
-      margin-top: 20px;
+      min-width: 520px;
+      height: 64px;
+      border: 1px solid #c5d2e1;
+      border-radius: 10px;
+      background: linear-gradient(to right, #2563eb, #dc2626) center / calc(100% - 16px) 12px no-repeat;
     }
     .timeMarker {
-      width: 2px;
-      background: white;
       position: absolute;
-      height: 20px;
-      top: 0;
+      top: 2px;
+      width: 44px;
+      height: 58px;
+      padding: 0;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      transform: translateX(-50%);
       cursor: pointer;
-      opacity: 0.6;
-    }
-    .activeMarker {
-      background: yellow;
-      width: 3px;
       opacity: 1;
+      touch-action: manipulation;
     }
-    #timeDisplay {
-      text-align: center;
-      margin-top: 1px;
+    .timeMarker::before {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      width: 3px;
+      height: 42px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, .95);
+      box-shadow: 0 0 0 1px rgba(24, 50, 75, .22);
+      transform: translateX(-50%);
     }
-    #timeDisplay_start_end {
-      text-align: center;
-      margin-top: 1px;
+    .timeMarker::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(24, 50, 75, .35);
+      transform: translateX(-50%);
     }
-    #minSmellLevel {
-      display: none;
-    }
+    .timeMarker:hover, .timeMarker:focus-visible { background: rgba(255, 255, 255, .25); outline: 2px solid #1769aa; outline-offset: 1px; }
+    .timeMarker.activeMarker { background: rgba(250, 204, 21, .25); }
+    .timeMarker.activeMarker::before { width: 5px; background: #facc15; box-shadow: 0 0 0 1px #854d0e, 0 0 8px rgba(250, 204, 21, .9); }
+    .timeMarker.activeMarker::after { border-color: #854d0e; background: #facc15; }
+    #timeDisplay { min-height: 24px; margin-top: 4px; padding: 7px 9px; border-radius: 8px; background: var(--surface-soft); color: var(--ink); text-align: center; font-weight: 600; }
+    #timeDisplay_start_end { display: flex; justify-content: space-between; gap: 12px; margin-top: 2px; color: var(--muted); font-size: .85rem; }
+    #minSmellLevel { min-width: 70px; }
     footer {
       margin-top: 20px;
       text-align: center;
       font-weight: bold;
+    }
+    @media (max-width: 700px) {
+      body { padding: 12px 10px 22px; }
+      h3 { margin-bottom: 10px; font-size: 1.35rem; }
+      .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; padding: 10px; }
+      .control-item { min-width: 0; }
+      .controls label { font-size: .86rem; }
+      .controls select, .controls input { box-sizing: border-box; width: 100%; min-height: 42px; }
+      .controls > a { grid-column: 1 / -1; }
+      .return-button { width: 100%; margin: 0; min-height: 44px; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+      .kpi-card { padding: 10px; }
+      .kpi-card strong { font-size: 1.3rem; }
+      #map { height: 300px; margin-bottom: 10px; }
+      #trendChart { padding: 6px; }
+      #legend { box-sizing: border-box; width: auto; margin: 8px 0; }
     }
   </style>
   <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.3/themes/smoothness/jquery-ui.css">
   <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
   <script src="https://code.jquery.com/ui/1.13.3/jquery-ui.js"></script>  
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI&libraries=visualization"></script> <!-- Replace YOUR_API_KEY with your Google Maps API key -->
+  <script src="assets/js/app-config.js?v=20260809-2"></script>
+  <script src="assets/js/date-utils.js"></script>
+  <script src="assets/js/analysis-ui.js"></script>
+  <script src="assets/js/map-loader.js?v=20260809" defer></script>
 </head>
 <body>
   <h3>臭味熱點分析</h3>
@@ -187,6 +252,16 @@
       </select>
     </label>
   </div>
+  <section class="dashboard-summary" aria-label="分析摘要">
+    <div class="kpi-grid">
+      <div class="kpi-card"><span>紀錄筆數</span><strong id="recordCount">--</strong></div>
+      <div class="kpi-card"><span>平均臭味程度</span><strong id="averageLevel">--</strong></div>
+      <div class="kpi-card"><span>最高程度</span><strong id="peakLevel">--</strong></div>
+      <div class="kpi-card"><span>最高發生時間</span><strong id="peakTime">--</strong></div>
+    </div>
+    <p id="summaryText">正在準備分析資料…</p>
+    <div id="trendChart" aria-label="臭味程度時間趨勢圖"></div>
+  </section>
   <div id="legend">
     <strong>圖例說明</strong>
     <div class="legend-scale">
@@ -201,10 +276,15 @@
     <div class="legend-scale_arrow">
     <span class="average-arrow"id="averageArrowLegend"></span>  區域平均風向，顯示在地圖中心位置。<br>
     </div>
-    <div><br><strong>風向說明:</strong><br> 箭頭表示當地的風向，箭頭顏色由藍漸變至紅以顯示回報的時間順序。<br></div>
-    <div id="colorBarContainer"></div>
-    <div id="timeDisplay_start_end"></div>
-    <div id="timeDisplay"></div>
+    <div class="timebar-section" aria-labelledby="timebar-title">
+      <p id="timebar-title" class="timebar-title">風向與通報時間</p>
+      <p class="timebar-hint">箭頭顏色由藍漸變至紅代表時間順序；請點選時間點，地圖會以黃色標記對應通報位置。</p>
+      <div class="timebar-scroll">
+        <div id="colorBarContainer" role="listbox" aria-label="通報時間條"></div>
+      </div>
+      <div id="timeDisplay_start_end"></div>
+      <div id="timeDisplay" role="status" aria-live="polite">請點選時間條上的通報點。</div>
+    </div>
     
 
     <br>
@@ -214,12 +294,17 @@
   <div id="loading">分析中...</div>
 
   <script>
-    const apiKey = 'b142facd0784f0961a51dc355befed53';
-    let map, heatmap;
-    const dataPoints = [];
+    let map;
+    const intensityCircles = [];
     const overlayViews = [];
     let recordDates = [];
     let activeMarker = null;
+    let selectedMapHighlight = null;
+    let selectedMapPin = null;
+    let loadController = null;
+    let requestSequence = 0;
+    let controlsInitialized = false;
+    let dateSelectionTouched = false;
     
     function getModeAndDateFromUrl() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -244,38 +329,54 @@
     }
 
     function initMap() {
+      if (map) return;
       map = new google.maps.Map(document.getElementById('map'), {
         center: { lat: 23.713179, lng: 120.505580 },
         zoom: 14
       });
 
-      heatmap = new google.maps.visualization.HeatmapLayer({
-        data: dataPoints,
-        map: map,
-        radius: getHeatmapRadius(map.getZoom()),
-        opacity: 0.6
-      });
-
-      map.addListener('zoom_changed', () => {
-        const zoomLevel = map.getZoom();
-        updateHeatmapRadius(zoomLevel);
-      });
-
+      setupAnalysisControls();
       loadData();
+    }
+
+    function setupAnalysisControls() {
+      if (controlsInitialized) return;
+      controlsInitialized = true;
       setDefaultDate();
       resetDatepicker();
-      //setupDatepicker();
-      setupAnalysisTypeChange(); // New function
+      setupAnalysisTypeChange();
+      loadData();
     }
     
     function setupAnalysisTypeChange() {
       $('#analysisType').on('change', function() {       
+        dateSelectionTouched = false;
         setDefaultDate();
         resetDatepicker();
         //setupDatepicker();
         loadData();
         document.getElementById('timeDisplay').innerText = '';
       });
+      $('#filterDate').on('change', function() {
+        dateSelectionTouched = true;
+        loadData();
+      });
+    }
+
+    function recordMatchesRegion(record) {
+      const region = '雲林縣';
+      const complaint = record && record.complaint ? record.complaint : {};
+      const county = String(complaint.locationCounty || '').trim();
+      const address = String(complaint.locationAddress || '').trim();
+      if (!county && !address) {
+        const latitude = Number(record && record['緯度']);
+        const longitude = Number(record && record['經度']);
+        const isLegacyYunlin = Number.isFinite(latitude) && Number.isFinite(longitude)
+          && latitude >= 23.4 && latitude <= 24.1
+          && longitude >= 120.1 && longitude <= 120.8;
+        return region === '雲林縣' && isLegacyYunlin;
+      }
+      return county === region || address.includes(region);
     }
     
     function resetDatepicker() {
@@ -287,6 +388,7 @@
           changeYear: true,
           showButtonPanel: true,
           onClose: function(dateText, inst) {
+            dateSelectionTouched = true;
             const month = $("#ui-datepicker-div .ui-datepicker-month :selected").val();
             const year = $("#ui-datepicker-div .ui-datepicker-year :selected").val();            
             $(this).datepicker( "option", "defaultDate", new Date(year, month, 1));
@@ -310,6 +412,7 @@
             return [false];
           },
           onChangeMonthYear: function(year, month, inst) {
+            dateSelectionTouched = true;
             setTimeout(() => {
               $("#ui-datepicker-div .ui-datepicker-calendar").hide();       
             }, 0);       
@@ -329,10 +432,11 @@
             setTimeout(() => {
               $("#ui-datepicker-div .ui-datepicker-calendar").show();
             }, 0);
-            const dateString = $.datepicker.formatDate('yy/m/d', date);
+            const dateString = $.datepicker.formatDate('yy-mm-dd', date);
             return [true, recordDates.includes(dateString) ? '' : 'highlight', ''];
           },
           onSelect: function() {
+            dateSelectionTouched = true;
             setTimeout(() => {
               $("#ui-datepicker-div .ui-datepicker-calendar").show();
             }, 0);
@@ -354,19 +458,28 @@
         if (dateFromUrl) {
           $('#filterDate').val(dateFromUrl);
         } else {
-          const today = new Date().toISOString().split('T')[0];
-          $('#filterDate').val(today);
+          $('#filterDate').val(window.APP_DATE.todayKey());
         }      
       } else {
         if (dateFromUrl) {
           $('#filterDate').val(dateFromUrl);
         } else {
-          const [year, month, day] = new Date().toISOString().split('T')[0].split('-');
-          const date = `${year}-${month}`;
-          console.log(date);
-          $('#filterDate').val(date);
+          $('#filterDate').val(window.APP_DATE.monthKey(new Date()));
         } 
       }      
+    }
+
+    function selectLatestAvailableDate(records) {
+      const [, explicitDate] = getModeAndDateFromUrl();
+      if (explicitDate || dateSelectionTouched) return;
+      const availableDates = records
+        .filter(recordMatchesRegion)
+        .map(record => window.APP_DATE.dateKey(record['聞到的時間']))
+        .filter(Boolean)
+        .sort();
+      if (!availableDates.length) return;
+      const latestDate = availableDates[availableDates.length - 1];
+      $('#filterDate').val($('#analysisType').val() === 'month' ? latestDate.slice(0, 7) : latestDate);
     }
 
     function setupDatepicker() {
@@ -374,11 +487,12 @@
         dateFormat: 'yy-mm-dd',
         beforeShowDay: function(date) {
           //console.log(recordDates);          
-          const dateString = $.datepicker.formatDate('yy/m/d', date);
+          const dateString = $.datepicker.formatDate('yy-mm-dd', date);
           //console.log(dateString);
           return [true, recordDates.includes(dateString) ? 'highlight' : '', ''];
         },
         onSelect: function() {
+          dateSelectionTouched = true;
           document.getElementById('timeDisplay').innerText = '';
           loadData();
         }
@@ -387,90 +501,122 @@
 
     function loadData() {
       document.getElementById('loading').style.display = 'block';
-      fetch('https://script.google.com/macros/s/AKfycbyqEBccQaivCIMNlPrt4Y1UabZyf_O7WiID1urO6XhfAHJO3qaoAz6iaXHJiPQp5YSG/exec')
-        .then(response => response.json())
-        .then(data => {
-          const analysisType = $('#analysisType').val();
-          if (analysisType === 'day') {
-            return analyzeByDay(data);
-          } else {
-            return analyzeByMonth(data);
-          }                    
+      if (loadController) loadController.abort();
+      const controller = new AbortController();
+      loadController = controller;
+      const requestId = ++requestSequence;
+      const timeout = setTimeout(() => controller.abort(), window.APP_CONFIG.requestTimeoutMs);
+      fetch(window.APP_CONFIG.analysisEndpoint, { signal: controller.signal })
+        .then(response => {
+          if (!response.ok) throw new Error(`分析資料請求失敗: ${response.status}`);
+          return response.json();
         })
-        .then(date => {
-            //console.log(date);
-            displayData(date);
-            document.getElementById('loading').style.display = 'none';
+        .then(data => {
+          if (!data || !Array.isArray(data.records)) throw new Error('分析資料格式錯誤：records 不是陣列');
+          selectLatestAvailableDate(data.records);
+          return $('#analysisType').val() === 'day' ? analyzeByDay(data) : analyzeByMonth(data);
+        })
+        .then(records => {
+          if (requestId !== requestSequence) return;
+          displayData(records);
         })
         .catch(error => {
-          console.error('Error fetching data:', error);
-          document.getElementById('loading').style.display = 'none';
-        });       
+          if (error.name !== 'AbortError') {
+            console.error('Error fetching data:', error);
+            document.getElementById('summaryText').textContent = `分析資料載入失敗：${error.message}`;
+            renderAnalysisSummary([]);
+          }
+        })
+        .finally(() => {
+          clearTimeout(timeout);
+          if (requestId === requestSequence) document.getElementById('loading').style.display = 'none';
+        });
     }
     
     function analyzeByDay(data) {
       const minLevel = parseInt(document.getElementById('minSmellLevel').value, 10);
       const filterDate = document.getElementById('filterDate').value;
-      dataPoints.length = 0;
-      clearArrows();
       recordDates = [];
-
-      const filteredRecords = data.records.filter(record => {
-        const recordDate = new Date(record.聞到的時間);
-        const selectedDate = new Date(filterDate);
-        //recordDates.push(recordDate.toISOString().split('T')[0]);
-        recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
-        //console.log(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
-        //console.log(selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
-        return record.臭味程度 >= minLevel && recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}) === selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'});
+      data.records.forEach(record => {
+        if (!recordMatchesRegion(record)) return;
+        const key = window.APP_DATE.dateKey(record.聞到的時間);
+        if (key) recordDates.push(key);
       });
-      return filteredRecords
+      return data.records.filter(record => {
+        const level = Number(record.臭味程度);
+        return recordMatchesRegion(record) && Number.isFinite(level) && level >= minLevel && window.APP_DATE.dateKey(record.聞到的時間) === filterDate;
+      });
     }
 
     function analyzeByMonth(data) {
       const minLevel = parseInt($('#minSmellLevel').val(), 10);
       const filterDate = document.getElementById('filterDate').value;   
-      dataPoints.length = 0;
-      clearArrows();
       recordDates = [];
-      const filteredRecords = data.records.filter(record => {
-        const recordDate = new Date(record.聞到的時間)
-        const selectedDate = new Date(filterDate);
-        //recordDates.push(recordDate.toISOString().split('T')[0]);
-        recordDates.push(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}));
-        //console.log(recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1]);
-        //console.log(selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1]);
-        return record.臭味程度 >= minLevel && 
-               recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[0]===selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[0]&& 
-               recordDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1]===selectedDate.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'}).split('/')[1];
+      data.records.forEach(record => {
+        if (!recordMatchesRegion(record)) return;
+        const key = window.APP_DATE.dateKey(record.聞到的時間);
+        if (key) recordDates.push(key);
       });
-      return filteredRecords
+      return data.records.filter(record => {
+        const level = Number(record.臭味程度);
+        return recordMatchesRegion(record) && Number.isFinite(level) && level >= minLevel && window.APP_DATE.monthKey(record.聞到的時間) === filterDate;
+      });
     }
 
     function displayData(filteredRecords) {
+      const records = (Array.isArray(filteredRecords) ? filteredRecords : []).filter(record => {
+        return Number.isFinite(Number(record.緯度)) && Number.isFinite(Number(record.經度)) && !Number.isNaN(new Date(record.聞到的時間).getTime());
+      }).sort((a, b) => new Date(a.聞到的時間) - new Date(b.聞到的時間));
+      clearIntensityCircles();
+      clearArrows();
+      renderAnalysisSummary(records);
 
-      filteredRecords.sort((a, b) => new Date(a.聞到的時間) - new Date(b.聞到的時間));
-
-      const startTime = new Date(filteredRecords[0]?.聞到的時間 || 0);
-      const endTime = new Date(filteredRecords[filteredRecords.length - 1]?.聞到的時間 || 0);
+      const startTime = new Date(records[0]?.聞到的時間 || 0);
+      const endTime = new Date(records[records.length - 1]?.聞到的時間 || 0);
+      if (!window.google || !window.google.maps || !map) {
+        drawColorMarkers(records, startTime, endTime);
+        return;
+      }
       
-      const windDirections = filteredRecords.map(record => parseFloat(record.嫌疑位置風向));
+      const windDirections = records.map(record => Number(record.嫌疑位置風向)).filter(Number.isFinite);
       if (windDirections.length !== 0) {
         const averageWindDirection = calculateAverageWindDirection(windDirections);
         drawAverageWindArrow(23.713179, 120.505580, averageWindDirection); 
       }
 
-      filteredRecords.forEach((record, index) => {
-        const color = interpolateColor([0, 0, 255], [255, 0, 0], index / (filteredRecords.length - 1));
-        dataPoints.push({ location: new google.maps.LatLng(record.緯度, record.經度), weight: record.臭味程度 });
-        drawArrow(record.緯度, record.經度, record.風向, color);
+      records.forEach((record, index) => {
+        const factor = records.length <= 1 ? 0.5 : index / (records.length - 1);
+        const color = interpolateColor([0, 0, 255], [255, 0, 0], factor);
+        const latitude = Number(record.緯度);
+        const longitude = Number(record.經度);
+        const weight = Number(record.臭味程度);
+        if (Number.isFinite(weight)) drawIntensityCircle(latitude, longitude, weight, color);
+        drawArrow(latitude, longitude, Number(record.風向), color);
       });
 
-      heatmap.setData(dataPoints);
-      //console.log(3, $('.ui-datepicker-calendar').css('display'))  
       $('#filterDate').datepicker('refresh');
-      //console.log(4, $('.ui-datepicker-calendar').css('display'))  
-      drawColorMarkers(filteredRecords, startTime, endTime);
+      drawColorMarkers(records, startTime, endTime);
+    }
+
+    function drawIntensityCircle(lat, lng, weight, color) {
+      const normalizedWeight = Math.max(1, Math.min(5, Number(weight)));
+      const circle = new google.maps.Circle({
+        center: { lat, lng },
+        radius: 35 + normalizedWeight * 18,
+        strokeColor: color,
+        strokeOpacity: 0.9,
+        strokeWeight: 2,
+        fillColor: color,
+        fillOpacity: 0.28,
+        clickable: false,
+        map
+      });
+      intensityCircles.push(circle);
+    }
+
+    function clearIntensityCircles() {
+      intensityCircles.forEach(circle => circle.setMap(null));
+      intensityCircles.length = 0;
     }
 
     function interpolateColor(color1, color2, factor) {
@@ -482,6 +628,7 @@
     }
 
     function drawArrow(lat, lng, windDirection, color) {
+      if (!Number.isFinite(windDirection)) return;
       const adjustedDirection = (windDirection + 180) % 360;
       const arrowDiv = document.createElement('div');
       arrowDiv.className = 'arrow';
@@ -500,7 +647,7 @@
         arrowDiv.style.top = `${position.y}px`;
       };
       overlay.onRemove = function() {
-        arrowDiv.parentNode.removeChild(arrowDiv);
+        if (arrowDiv.parentNode) arrowDiv.parentNode.removeChild(arrowDiv);
       };
       overlay.setMap(map);
 
@@ -508,6 +655,7 @@
     }
 
     function drawAverageWindArrow(lat, lng, windDirection) {
+      if (!Number.isFinite(windDirection)) return;
       const adjustedDirection = (windDirection + 180) % 360;
       const avgarrowDiv = document.getElementById('averageArrowLegend');
       avgarrowDiv.style.transform = `rotate(${adjustedDirection}deg)`;
@@ -528,7 +676,7 @@
         arrowDiv.style.top = `${position.y}px`;
       };
       overlay.onRemove = function() {
-        arrowDiv.parentNode.removeChild(arrowDiv);
+        if (arrowDiv.parentNode) arrowDiv.parentNode.removeChild(arrowDiv);
       };
       overlay.setMap(map);
 
@@ -549,34 +697,98 @@
     function clearArrows() {
       overlayViews.forEach(overlay => overlay.setMap(null));
       overlayViews.length = 0;
+      const averageArrow = document.getElementById('averageArrowLegend');
+      if (averageArrow) averageArrow.style.transform = 'rotate(0deg)';
+    }
+
+    function clearSelectedMapRecord() {
+      if (selectedMapHighlight && typeof selectedMapHighlight.setMap === 'function') selectedMapHighlight.setMap(null);
+      if (selectedMapPin && typeof selectedMapPin.setMap === 'function') selectedMapPin.setMap(null);
+      selectedMapHighlight = null;
+      selectedMapPin = null;
+    }
+
+    function showSelectedMapRecord(record) {
+      const latitude = Number(record && record.緯度);
+      const longitude = Number(record && record.經度);
+      if (!map || !window.google?.maps || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      clearSelectedMapRecord();
+      const position = { lat: latitude, lng: longitude };
+      if (google.maps.Circle) {
+        selectedMapHighlight = new google.maps.Circle({
+          center: position,
+          radius: 86,
+          strokeColor: '#854d0e',
+          strokeOpacity: 1,
+          strokeWeight: 3,
+          fillColor: '#facc15',
+          fillOpacity: 0.55,
+          clickable: false,
+          zIndex: 1000,
+          map
+        });
+      }
+      if (google.maps.Marker && google.maps.SymbolPath?.CIRCLE) {
+        selectedMapPin = new google.maps.Marker({
+          position,
+          map,
+          title: '目前選取的通報位置',
+          zIndex: 1001,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 9,
+            fillColor: '#facc15',
+            fillOpacity: 1,
+            strokeColor: '#854d0e',
+            strokeWeight: 3
+          }
+        });
+      }
+      if (typeof map.panTo === 'function') map.panTo(position);
+    }
+
+    function formatSelectedTime(time) {
+      const analysisType = $('#analysisType').val();
+      const options = analysisType === 'day'
+        ? { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }
+        : { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false };
+      return time.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', ...options });
     }
 
     function drawColorMarkers(records, startTime, endTime) {
       //console.log(records.length);
       const container = document.getElementById('colorBarContainer');
       container.innerHTML = '';
+      container.style.width = `${Math.max(520, records.length * 44)}px`;
+      activeMarker = null;
+      clearSelectedMapRecord();
 
-      records.forEach(record => {
+      const duration = endTime - startTime;
+      records.forEach((record, index) => {
         const time = new Date(record.聞到的時間);
-        const position = (time - startTime) / (endTime - startTime) * 100;
+        const position = duration > 0 ? Math.max(0, Math.min(100, (time - startTime) / duration * 100)) : 50;
 
-        const marker = document.createElement('div');
+        const marker = document.createElement('button');
+        marker.type = 'button';
         marker.className = 'timeMarker';
         marker.style.left = `${position}%`;
+        marker.dataset.recordIndex = String(index);
+        marker.setAttribute('role', 'option');
+        marker.setAttribute('aria-selected', 'false');
+        marker.setAttribute('aria-label', `選取 ${formatSelectedTime(time)}，臭味程度 ${record.臭味程度} 級`);
+        marker.title = `點選查看 ${formatSelectedTime(time)} 的通報位置`;
 
         marker.addEventListener('click', () => {
           if (activeMarker) {
             activeMarker.classList.remove('activeMarker');
+            activeMarker.setAttribute('aria-selected', 'false');
           }
           marker.classList.add('activeMarker');
+          marker.setAttribute('aria-selected', 'true');
           activeMarker = marker;
-          //console.log(time)
-          const analysisType = $('#analysisType').val();
-          if (analysisType === 'day') {
-            document.getElementById('timeDisplay').innerText = time.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false });
-          } else {
-            document.getElementById('timeDisplay').innerText = time.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei' });
-          }
+          document.getElementById('timeDisplay').innerText = `已選取 ${formatSelectedTime(time)}；臭味程度 ${record.臭味程度} 級，地圖以黃色標記位置。`;
+          showSelectedMapRecord(record);
+          marker.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         });
 
         container.appendChild(marker);
@@ -589,23 +801,19 @@
       if (analysisType === 'day') {
         
         //console.log(startTime)
-        startTimeDiv.textContent = records.length>0?`起始: ${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`:`--`;
-        startTimeDiv.style.float = 'left';
+        startTimeDiv.textContent = records.length>0?`起始：${startTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false })}`:`--`;
 
         
         //console.log(endTime)
-        endTimeDiv.textContent = records.length>0?`結束: ${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`:`--`;
-        endTimeDiv.style.float = 'right';
+        endTimeDiv.textContent = records.length>0?`結束：${endTime.toLocaleTimeString('zh-TW', {timeZone: 'Asia/Taipei',  hour: '2-digit', minute: '2-digit', hour12: false })}`:`--`;
       } else {
         
         //console.log(startTime)
-        startTimeDiv.textContent = records.length>0?`起始: ${startTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
-        startTimeDiv.style.float = 'left';
+        startTimeDiv.textContent = records.length>0?`起始：${startTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
 
         
         //console.log(endTime)
-        endTimeDiv.textContent = records.length>0?`結束: ${endTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
-        endTimeDiv.style.float = 'right';
+        endTimeDiv.textContent = records.length>0?`結束：${endTime.toLocaleDateString('zh-TW', {timeZone: 'Asia/Taipei'})}`:`--`;
       }  
 
       document.getElementById('timeDisplay_start_end').innerHTML = '';
@@ -613,17 +821,13 @@
       document.getElementById('timeDisplay_start_end').appendChild(endTimeDiv);
     }
 
-    function updateHeatmapRadius(zoom) {
-      const radius = getHeatmapRadius(zoom);
-      heatmap.set('radius', radius);
-    }
-
-    function getHeatmapRadius(zoom) {
-      return Math.max(20, Math.pow(2, zoom - 10));
-    }
-
-    google.maps.event.addDomListener(window, 'load', initMap);
+    window.addEventListener('DOMContentLoaded', () => {
+      setupAnalysisControls();
+      loadGoogleMaps(initMap).catch(() => {
+        document.getElementById('summaryText').textContent = '地圖尚未啟用；仍可檢查分析資料摘要。';
+      });
+    });
   </script>
-  <footer>網頁製作人: 康嘉麟</footer>
+  <footer>網頁製作人: <a href="https://che.ccu.edu.tw/p/405-1103-60621,c1154.php?Lang=zh-tw" target="_blank" rel="noopener">康嘉麟(中正大學化工系)</a></footer>
 </body>
 </html>
