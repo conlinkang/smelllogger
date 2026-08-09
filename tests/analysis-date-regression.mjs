@@ -142,6 +142,15 @@ try {
   assert.ok(trendMetrics.chartHeight <= 160, 'mobile trend chart should remain compact');
   if (proofDir) await page.locator('.dashboard-summary').screenshot({ path: path.join(proofDir, 'analysis-mobile-compact-trend.png') });
 
+  await page.locator('#minSmellLevel').selectOption('5');
+  await page.waitForFunction(() => document.querySelector('#recordCount')?.textContent === '1');
+  assert.equal(await page.locator('#recordCount').textContent(), '1', 'level 5 filter should hide the level 4 record');
+  assert.equal(await page.locator('#minSmellLevelHint').innerText(), '選 5 = 僅顯示 5 級紀錄');
+  await page.locator('#minSmellLevel').selectOption('1');
+  await page.waitForFunction(() => document.querySelector('#recordCount')?.textContent === '2');
+  assert.equal(await page.locator('#recordCount').textContent(), '2', 'level 1 filter should restore all monthly records');
+  assert.equal(await page.locator('#minSmellLevelHint').innerText(), '選 1 = 顯示 1～5 級紀錄');
+
   const timeSlider = page.locator('#timeSlider');
   assert.equal(await timeSlider.count(), 1, 'compact time slider should be rendered');
   await timeSlider.evaluate((element) => {
