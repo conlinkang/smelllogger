@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 process.env.NODE_ENV = 'test';
-const { normalizeVoiceAnalysis, normalizeAcousticFeatures, validatePacket, isOfficialSubmitEnabled } = await import('../official-form-runner/server.js');
+const { normalizeVoiceAnalysis, normalizeAcousticFeatures, validatePacket, validateCaptchaFinalize, isOfficialSubmitEnabled } = await import('../official-form-runner/server.js');
 
 assert.equal(isOfficialSubmitEnabled('false'), false);
 assert.equal(isOfficialSubmitEnabled('FALSE'), false);
@@ -36,6 +36,16 @@ assert.equal(validatePacket({ ...packet, reporter: { ...packet.reporter, address
 assert.equal(validatePacket({ ...packet, complaint: { ...packet.complaint, officialForm: { ...packet.complaint.officialForm, pollutionCounty: '嘉義縣' } } }).code, 'COUNTY_MISMATCH');
 assert.equal(validatePacket({ ...packet, mode: 'submit', finalSubmit: true }).code, 'FINAL_CONFIRMATION_REQUIRED');
 assert.equal(validatePacket({ ...packet, mode: 'submit', finalSubmit: true, confirmationText: '我確認以本人資料正式陳情' }).ok, true);
+
+const captchaFinalize = {
+  sessionId: 'integration_session_abcdefghijklmnopqrstuvwxyz123456',
+  captchaText: '9N9PF',
+  confirmationText: '我確認以本人資料正式陳情'
+};
+assert.equal(validateCaptchaFinalize(captchaFinalize).ok, true);
+assert.equal(validateCaptchaFinalize({ ...captchaFinalize, sessionId: 'short' }).code, 'SESSION_ID_INVALID');
+assert.equal(validateCaptchaFinalize({ ...captchaFinalize, captchaText: '9N-9PF!' }).code, 'CAPTCHA_FORMAT_INVALID');
+assert.equal(validateCaptchaFinalize({ ...captchaFinalize, confirmationText: '' }).code, 'FINAL_CONFIRMATION_REQUIRED');
 
 const normalized = normalizeVoiceAnalysis({
   odorLevel: 7,

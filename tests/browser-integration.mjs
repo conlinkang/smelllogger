@@ -60,12 +60,42 @@ async function configureRoutes(page, state) {
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ records: [] }) });
   });
-  await page.route('**/smelllogger-runner-*.run.app/submit', route => {
-    state.officialPayload = route.request().postDataJSON();
+  await page.route('**/smelllogger-runner-*.run.app/prepare', route => {
+    state.preparePayload = route.request().postDataJSON();
     return route.fulfill({
       status: 202,
       contentType: 'application/json',
-      body: JSON.stringify({ status: 'manual_required', code: 'READY_FOR_FINAL_REVIEW', pageUrl: 'https://ww3.moenv.gov.tw/Public/Case_Add.aspx' })
+      body: JSON.stringify({
+        status: 'captcha_required',
+        code: 'CAPTCHA_REQUIRED',
+        sessionId: 'integration_session_abcdefghijklmnopqrstuvwxyz123456',
+        captchaImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=',
+        expiresAt: new Date(Date.now() + 300000).toISOString(),
+        expiresInSeconds: 300
+      })
+    });
+  });
+  await page.route('**/smelllogger-runner-*.run.app/finalize', route => {
+    state.finalizePayload = route.request().postDataJSON();
+    state.finalizeCalls = (state.finalizeCalls || 0) + 1;
+    if (state.finalizeCalls === 1) {
+      return route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'captcha_required',
+          code: 'CAPTCHA_INCORRECT',
+          sessionId: 'integration_session_abcdefghijklmnopqrstuvwxyz123456',
+          captchaImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=',
+          expiresAt: new Date(Date.now() + 240000).toISOString(),
+          attemptsRemaining: 2
+        })
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'email_verification_required', code: 'EMAIL_VERIFICATION_REQUIRED' })
     });
   });
 }
@@ -91,13 +121,13 @@ const address = server.address();
 const baseUrl = `http://127.0.0.1:${address.port}`;
 const browser = await chromium.launch({ headless: true });
 try {
-  const noLocationState = { baseUrl, platformPayload: null, officialPayload: null };
+  const noLocationState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null };
   const noLocation = await openIndex(browser, noLocationState, { withLocation: false });
   assert.equal(await noLocation.page.locator('#submitButton').isDisabled(), true, 'submit button must be disabled before a location is selected');
   assert.equal(await noLocation.page.locator('#submitButton').innerText(), '請先完成定位');
   await noLocation.context.close();
 
-  const namedState = { baseUrl, platformPayload: null, officialPayload: null };
+  const namedState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null, finalizeCalls: 0 };
   const named = await openIndex(browser, namedState);
   assert.equal(await named.page.locator('#officialReviewLink').isVisible(), false, 'official form link should be hidden before a fallback is needed');
   const namedButtonBox = await named.page.locator('#submitButton').boundingBox();
@@ -115,18 +145,33 @@ try {
   assert.equal(await named.page.locator('#submitButton').isDisabled(), false);
   await named.page.locator('#submitButton').click();
   await named.page.waitForTimeout(700);
-  assert.equal(namedState.officialPayload?.mode, 'submit');
-  assert.equal(namedState.officialPayload?.reporter?.name, 'integration-test');
-  assert.equal(namedState.officialPayload?.complaint?.officialForm?.pollutionCounty, '雲林縣');
-  assert.match(await named.page.locator('#message').innerText(), /人工確認階段/);
-  assert.equal(await named.page.locator('#officialReviewPanel').isVisible(), true, 'formal submit fallback should show the manual review panel');
+  assert.equal(namedState.preparePayload?.mode, 'prepare');
+  assert.equal(namedState.preparePayload?.reporter?.name, 'integration-test');
+  assert.equal(namedState.preparePayload?.complaint?.officialForm?.pollutionCounty, '雲林縣');
+  assert.equal(await named.page.locator('#officialCaptchaPanel').isVisible(), true, 'prepared form should show the CAPTCHA relay panel');
+  assert.equal(await named.page.locator('#officialReviewPanel').isVisible(), false, 'manual fallback should remain hidden while CAPTCHA relay is available');
   assert.equal(await named.page.locator('#officialSimulationPanel').isVisible(), false, 'formal submit fallback should not show the prepare simulation panel');
+  await named.page.locator('#officialCaptchaInput').fill('WRONG');
+  await named.page.locator('#officialCaptchaSubmit').click();
+  await named.page.waitForFunction(() => document.querySelector('#officialCaptchaStatus')?.textContent?.includes('重新輸入'));
+  assert.equal(namedState.finalizeCalls, 1);
+  assert.match(await named.page.locator('#officialCaptchaStatus').innerText(), /驗證碼不正確|重新輸入/);
+  assert.equal(await named.page.locator('#officialCaptchaInput').inputValue(), '', 'wrong CAPTCHA should clear the input for a retry');
+  await named.page.locator('#officialCaptchaInput').fill('9N9PF');
+  await named.page.locator('#officialCaptchaSubmit').click();
+  await named.page.waitForFunction(() => document.querySelector('#officialCaptchaStatus')?.textContent?.includes('電子信箱'));
+  assert.equal(namedState.finalizeCalls, 2);
+  assert.equal(namedState.finalizePayload?.sessionId, 'integration_session_abcdefghijklmnopqrstuvwxyz123456');
+  assert.equal(namedState.finalizePayload?.captchaText, '9N9PF');
+  assert.equal(namedState.finalizePayload?.confirmationText, '我確認以本人資料正式陳情');
+  assert.match(await named.page.locator('#message').innerText(), /信箱完成認證/);
+  assert.equal(await named.page.locator('#officialReviewPanel').isVisible(), false, 'successful relay should not expose the manual fallback');
   assert.equal(await named.page.locator('#smellTime').isDisabled(), true, 'system-recorded smell time should not be editable');
   assert.equal(JSON.stringify(namedState.platformPayload).includes('0900000000'), false);
   assert.equal(JSON.stringify(namedState.platformPayload).includes('integration@example.com'), false);
   await named.context.close();
 
-  const platformOnlyState = { baseUrl, platformPayload: null, officialPayload: null };
+  const platformOnlyState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null };
   const platformOnly = await openIndex(browser, platformOnlyState);
   await platformOnly.page.locator('#reporterName').fill('partial-reporter');
   assert.equal(await platformOnly.page.locator('#submitButton').innerText(), '送出平台紀錄');
@@ -134,7 +179,8 @@ try {
   await platformOnly.page.locator('#submitButton').click();
   await platformOnly.page.waitForTimeout(700);
   assert.equal(platformOnlyState.platformPayload?.reporter, undefined);
-  assert.equal(platformOnlyState.officialPayload, null);
+  assert.equal(platformOnlyState.preparePayload, null);
+  assert.equal(platformOnlyState.finalizePayload, null);
   assert.match(await platformOnly.page.locator('#message').innerText(), /只送出平台紀錄/);
   await platformOnly.context.close();
 

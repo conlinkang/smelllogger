@@ -333,10 +333,11 @@
     return complaint;
   }
 
-  function getOfficialSubmissionPacket() {
+  function getOfficialSubmissionPacket(modeOverride) {
     const complaint = getComplaintData();
     const config = window.APP_CONFIG || {};
-    const finalMode = config.officialSubmissionMode === 'submit';
+    const requestedMode = modeOverride || config.officialSubmissionMode || 'prepare';
+    const finalMode = requestedMode === 'submit';
     const finalConfirmed = finalMode && complaint.officialSubmissionConfirmed;
     return {
       mode: finalMode ? 'submit' : 'prepare',

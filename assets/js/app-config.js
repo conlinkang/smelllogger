@@ -7,6 +7,8 @@ window.APP_CONFIG = Object.freeze({
   analysisEndpoint: 'https://script.google.com/macros/s/AKfycbxOgCXGmBCrAzEDxld8DQtK7s1yO7f4q5owC-B5pGMiJ-uRN2HY4sZZPvMwScgnlP8/exec',
   // Cloud Run endpoint. Formal submission still requires the in-page confirmation checkbox.
   officialSubmissionEndpoint: 'https://smelllogger-runner-442879625893.asia-east1.run.app/submit',
+  officialPrepareEndpoint: 'https://smelllogger-runner-442879625893.asia-east1.run.app/prepare',
+  officialFinalizeEndpoint: 'https://smelllogger-runner-442879625893.asia-east1.run.app/finalize',
   officialSubmissionMode: 'submit',
   officialFinalConfirmationText: '我確認以本人資料正式陳情',
   officialSubmissionTimeoutMs: 60000,

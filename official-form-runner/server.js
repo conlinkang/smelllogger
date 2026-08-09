@@ -1,4 +1,5 @@
 import express from 'express';
+import { randomBytes } from 'node:crypto';
 import { chromium } from 'playwright';
 import { SpeechClient } from '@google-cloud/speech';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -9,6 +10,10 @@ const REQUIRED_COUNTY = process.env.REQUIRED_COUNTY || '雲林縣';
 const OFFICIAL_URL = 'https://ww3.moenv.gov.tw/Public/Case_Add.aspx';
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
+const CAPTCHA_SESSION_TTL_MS = Math.max(60_000, Number(process.env.CAPTCHA_SESSION_TTL_MS || 5 * 60 * 1000));
+const MAX_CAPTCHA_SESSIONS = Math.max(1, Number(process.env.MAX_CAPTCHA_SESSIONS || 3));
+const MAX_CAPTCHA_ATTEMPTS = Math.max(1, Number(process.env.MAX_CAPTCHA_ATTEMPTS || 3));
+const FINAL_CONFIRMATION_TEXT = '我確認以本人資料正式陳情';
 const VOICE_MODEL = process.env.VERTEX_MODEL || 'gemini-2.5-flash';
 export function isOfficialSubmitEnabled(value = process.env.OFFICIAL_SUBMIT_ENABLED) {
   return String(value || '').trim().toLowerCase() === 'true';
@@ -65,7 +70,7 @@ function rateLimit(req, res, next) {
   return next();
 }
 
-app.use(['/submit', '/analyze-voice'], rateLimit);
+app.use(['/submit', '/prepare', '/finalize', '/analyze-voice'], rateLimit);
 
 function text(value, maxLength = 500) {
   return String(value == null ? '' : value)
@@ -159,10 +164,26 @@ function validatePacket(body) {
   if (!packet.complaint.officialForm.pollutionTown || !packet.complaint.officialForm.pollutionAddressNote) {
     return { ok: false, status: 400, code: 'LOCATION_INCOMPLETE', message: 'County, town, and address note are required' };
   }
-  if (packet.mode === 'submit' && (!packet.finalSubmit || packet.confirmationText !== '我確認以本人資料正式陳情')) {
+  if (packet.mode === 'submit' && (!packet.finalSubmit || packet.confirmationText !== FINAL_CONFIRMATION_TEXT)) {
     return { ok: false, status: 400, code: 'FINAL_CONFIRMATION_REQUIRED', message: 'Final submission requires the explicit confirmation text' };
   }
   return { ok: true, packet };
+}
+
+export function validateCaptchaFinalize(body) {
+  const sessionId = text(body && body.sessionId, 128);
+  const captchaText = text(body && body.captchaText, 20).replace(/\s+/g, '');
+  const confirmationText = text(body && body.confirmationText, 80);
+  if (!sessionId || !/^[A-Za-z0-9_-]{32,128}$/.test(sessionId)) {
+    return { ok: false, status: 400, code: 'SESSION_ID_INVALID', message: 'CAPTCHA 工作階段無效' };
+  }
+  if (confirmationText !== FINAL_CONFIRMATION_TEXT) {
+    return { ok: false, status: 400, code: 'FINAL_CONFIRMATION_REQUIRED', message: '需要最後送出確認' };
+  }
+  if (captchaText && !/^[A-Za-z0-9]{3,12}$/.test(captchaText)) {
+    return { ok: false, status: 400, code: 'CAPTCHA_FORMAT_INVALID', message: '驗證碼格式不正確' };
+  }
+  return { ok: true, sessionId, captchaText };
 }
 
 function runnerError(code, message) {
@@ -380,10 +401,69 @@ async function clickOfficialCause(page, label) {
 
 async function pageHasCaptcha(page) {
   const body = (await page.locator('body').innerText()).toLowerCase();
-  return /captcha|recaptcha|驗證碼|圖形驗證/.test(body);
+  return /captcha|recaptcha|驗證碼|圖形驗證/.test(body) || Boolean(await findCaptchaInput(page));
 }
 
-async function fillOfficialForm(packet) {
+const CAPTCHA_INPUT_SELECTORS = [
+  '#TBox_Captcha',
+  '#TBox_ValidateCode',
+  '#TBox_VerifyCode',
+  '#txtCaptcha',
+  'input[name*="Captcha"]',
+  'input[name*="captcha"]',
+  'input[id*="Captcha"]',
+  'input[id*="captcha"]',
+  'input[aria-label*="驗證碼"]'
+];
+
+const CAPTCHA_IMAGE_SELECTORS = [
+  '#imgCaptcha',
+  '#CaptchaImage',
+  '#ImageCode',
+  'img[src*="Captcha"]',
+  'img[src*="captcha"]',
+  'img[src*="ValidateCode"]',
+  'img[src*="CheckCode"]',
+  'img[alt*="驗證碼"]'
+];
+
+async function firstVisible(page, selectors) {
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    if (await locator.count() > 0 && await locator.isVisible().catch(() => false)) return locator;
+  }
+  return null;
+}
+
+async function findCaptchaInput(page) {
+  const direct = await firstVisible(page, CAPTCHA_INPUT_SELECTORS);
+  if (direct) return direct;
+  const prompt = page.getByText(/請輸入.*驗證碼|驗證碼/, { exact: false }).first();
+  if (await prompt.count() === 0) return null;
+  const following = prompt.locator('xpath=following::input[not(@type="hidden")][1]');
+  return await following.count() > 0 && await following.isVisible().catch(() => false) ? following : null;
+}
+
+async function findCaptchaImage(page) {
+  const direct = await firstVisible(page, CAPTCHA_IMAGE_SELECTORS);
+  if (direct) return direct;
+  const input = await findCaptchaInput(page);
+  if (!input) return null;
+  const preceding = input.locator('xpath=preceding::img[1]');
+  if (await preceding.count() === 0 || !await preceding.isVisible().catch(() => false)) return null;
+  const [inputBox, imageBox] = await Promise.all([input.boundingBox(), preceding.boundingBox()]);
+  if (!inputBox || !imageBox || Math.abs(inputBox.y - imageBox.y) > 220) return null;
+  return preceding;
+}
+
+async function captureCaptchaImage(page) {
+  const image = await findCaptchaImage(page);
+  if (!image) return '';
+  const buffer = await image.screenshot({ type: 'png' });
+  return `data:image/png;base64,${buffer.toString('base64')}`;
+}
+
+async function createOfficialBrowserSession(packet) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ locale: 'zh-TW' });
   const page = await context.newPage();
@@ -460,28 +540,124 @@ async function fillOfficialForm(packet) {
       await clickFirst(page, ['label[for="RBL_Worker2"]', '#RBL_Worker2', 'input[value*="否"]']);
     }
     stage = 'captcha-check';
-    if (await pageHasCaptcha(page)) {
-      return { status: 'manual_required', code: 'CAPTCHA_OR_HUMAN_CHECK', pageUrl: page.url() };
-    }
-    if (packet.mode === 'prepare' || !OFFICIAL_SUBMIT_ENABLED) {
-      return { status: 'manual_required', code: 'READY_FOR_FINAL_REVIEW', pageUrl: page.url() };
-    }
-    stage = 'final-submit';
-    await clickFirst(page, ['#Btn_Step3_next', '#Btn_Submit', 'input[type="submit"]'], true);
-    await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
-    const resultText = await page.locator('body').innerText();
-    if (/受理編號|案件編號|送出成功|陳情完成/.test(resultText)) {
-      return { status: 'submitted', pageUrl: page.url() };
-    }
-    return { status: 'manual_required', code: 'SUBMISSION_RESULT_UNCONFIRMED', pageUrl: page.url() };
+    return {
+      browser,
+      context,
+      page,
+      captchaRequired: await pageHasCaptcha(page),
+      stage
+    };
   } catch (error) {
     error.stage = stage;
-    throw error;
-  } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
+    throw error;
   }
 }
+
+async function closeOfficialBrowserSession(session) {
+  if (!session || session.closed) return;
+  session.closed = true;
+  await session.context?.close().catch(() => {});
+  await session.browser?.close().catch(() => {});
+}
+
+async function clickOfficialFinalSubmit(page) {
+  await clickFirst(page, [
+    '#Btn_Step3_next',
+    '#Btn_Submit',
+    'input[value="確認送出"]',
+    'button:has-text("確認送出")',
+    'input[type="submit"]'
+  ], true);
+  await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(700);
+}
+
+async function readOfficialResult(page) {
+  const resultText = await page.locator('body').innerText();
+  if (/受理編號|案件編號|送出成功|陳情完成/.test(resultText)) {
+    return { status: 'submitted', pageUrl: page.url() };
+  }
+  if (/認證信|驗證信|請至.*信箱|電子郵件.*確認/.test(resultText)) {
+    return { status: 'email_verification_required', code: 'EMAIL_VERIFICATION_REQUIRED', pageUrl: page.url() };
+  }
+  if (await pageHasCaptcha(page)) {
+    return {
+      status: 'captcha_required',
+      code: 'CAPTCHA_INVALID_OR_REFRESHED',
+      pageUrl: page.url(),
+      captchaImage: await captureCaptchaImage(page)
+    };
+  }
+  return { status: 'manual_required', code: 'SUBMISSION_RESULT_UNCONFIRMED', pageUrl: page.url() };
+}
+
+async function finalizeOfficialBrowserSession(session, captchaText = '') {
+  const page = session.page;
+  if (session.captchaRequired) {
+    const input = await findCaptchaInput(page);
+    if (!input) throw runnerError('CAPTCHA_INPUT_NOT_FOUND', 'Cannot find CAPTCHA input');
+    if (!captchaText) {
+      return {
+        status: 'captcha_required',
+        code: 'CAPTCHA_REQUIRED',
+        pageUrl: page.url(),
+        captchaImage: await captureCaptchaImage(page)
+      };
+    }
+    await input.fill(captchaText);
+  }
+  await clickOfficialFinalSubmit(page);
+  return readOfficialResult(page);
+}
+
+async function fillOfficialForm(packet) {
+  const session = await createOfficialBrowserSession(packet);
+  try {
+    if (session.captchaRequired) {
+      return { status: 'manual_required', code: 'CAPTCHA_OR_HUMAN_CHECK', pageUrl: session.page.url() };
+    }
+    if (packet.mode === 'prepare' || !OFFICIAL_SUBMIT_ENABLED) {
+      return { status: 'manual_required', code: 'READY_FOR_FINAL_REVIEW', pageUrl: session.page.url() };
+    }
+    return await finalizeOfficialBrowserSession(session);
+  } finally {
+    await closeOfficialBrowserSession(session);
+  }
+}
+
+const captchaSessions = new Map();
+
+async function deleteCaptchaSession(sessionId) {
+  const session = captchaSessions.get(sessionId);
+  if (!session) return;
+  captchaSessions.delete(sessionId);
+  await closeOfficialBrowserSession(session);
+}
+
+async function registerCaptchaSession(session) {
+  if (captchaSessions.size >= MAX_CAPTCHA_SESSIONS) {
+    const oldest = [...captchaSessions.entries()].sort((left, right) => left[1].createdAt - right[1].createdAt)[0];
+    if (oldest) await deleteCaptchaSession(oldest[0]);
+  }
+  const sessionId = randomBytes(32).toString('base64url');
+  const now = Date.now();
+  Object.assign(session, { sessionId, createdAt: now, expiresAt: now + CAPTCHA_SESSION_TTL_MS, captchaAttempts: 0, closed: false });
+  captchaSessions.set(sessionId, session);
+  return session;
+}
+
+async function cleanupExpiredCaptchaSessions() {
+  const now = Date.now();
+  const expired = [...captchaSessions.entries()].filter(([, session]) => session.expiresAt <= now);
+  await Promise.all(expired.map(([sessionId]) => deleteCaptchaSession(sessionId)));
+}
+
+const captchaCleanupTimer = setInterval(() => {
+  cleanupExpiredCaptchaSessions().catch(() => {});
+}, Math.min(CAPTCHA_SESSION_TTL_MS, 60_000));
+captchaCleanupTimer.unref?.();
 
 const healthHandler = (req, res) => {
   res.json({
@@ -490,6 +666,9 @@ const healthHandler = (req, res) => {
     county: REQUIRED_COUNTY,
     defaultMode: OFFICIAL_SUBMIT_ENABLED ? 'submit' : 'prepare',
     officialSubmitEnabled: OFFICIAL_SUBMIT_ENABLED,
+    captchaRelayEnabled: true,
+    captchaSessionTtlSeconds: Math.round(CAPTCHA_SESSION_TTL_MS / 1000),
+    captchaMaxAttempts: MAX_CAPTCHA_ATTEMPTS,
     voiceConfigured: Boolean(process.env.GOOGLE_CLOUD_PROJECT)
   });
 };
@@ -522,6 +701,102 @@ app.post('/analyze-voice', async (req, res) => {
   }
 });
 
+app.post('/prepare', async (req, res) => {
+  const expectedToken = String(process.env.RUNNER_TOKEN || '');
+  if (expectedToken && req.get('x-runner-token') !== expectedToken) {
+    return res.status(401).json({ status: 'rejected', code: 'UNAUTHORIZED', message: 'Runner token is required' });
+  }
+  const validation = validatePacket({
+    ...(req.body || {}),
+    mode: 'prepare',
+    finalSubmit: false,
+    confirmationText: ''
+  });
+  if (!validation.ok) return res.status(validation.status).json({ status: 'rejected', code: validation.code, message: validation.message });
+  try {
+    await cleanupExpiredCaptchaSessions();
+    const session = await createOfficialBrowserSession(validation.packet);
+    const captchaImage = session.captchaRequired ? await captureCaptchaImage(session.page) : '';
+    if (session.captchaRequired && !captchaImage) {
+      await closeOfficialBrowserSession(session);
+      return res.status(422).json({
+        status: 'manual_required',
+        code: 'CAPTCHA_IMAGE_NOT_FOUND',
+        message: '已到達 CAPTCHA，但無法擷取驗證碼圖片'
+      });
+    }
+    await registerCaptchaSession(session);
+    return res.status(202).json({
+      status: session.captchaRequired ? 'captcha_required' : 'ready_for_final_review',
+      code: session.captchaRequired ? 'CAPTCHA_REQUIRED' : 'READY_FOR_FINAL_REVIEW',
+      sessionId: session.sessionId,
+      captchaImage,
+      expiresAt: new Date(session.expiresAt).toISOString(),
+      expiresInSeconds: Math.round(CAPTCHA_SESSION_TTL_MS / 1000)
+    });
+  } catch (error) {
+    const code = error.code || 'RUNNER_FAILED';
+    const result = {
+      status: 'manual_required',
+      code,
+      stage: error.stage || 'unknown',
+      message: '環境部表單無法準備，請改用人工流程'
+    };
+    if (process.env.DEBUG_RUNNER === 'true') result.detail = text(error.message, 300);
+    return res.status(code === 'OFFICIAL_SELECTOR_CHANGED' || code === 'OFFICIAL_OPTION_CHANGED' ? 422 : 500).json(result);
+  }
+});
+
+app.post('/finalize', async (req, res) => {
+  const expectedToken = String(process.env.RUNNER_TOKEN || '');
+  if (expectedToken && req.get('x-runner-token') !== expectedToken) {
+    return res.status(401).json({ status: 'rejected', code: 'UNAUTHORIZED', message: 'Runner token is required' });
+  }
+  if (!OFFICIAL_SUBMIT_ENABLED) {
+    return res.status(503).json({ status: 'rejected', code: 'OFFICIAL_SUBMIT_DISABLED', message: '環境部正式送出尚未啟用' });
+  }
+  const validation = validateCaptchaFinalize(req.body);
+  if (!validation.ok) return res.status(validation.status).json({ status: 'rejected', code: validation.code, message: validation.message });
+  await cleanupExpiredCaptchaSessions();
+  const session = captchaSessions.get(validation.sessionId);
+  if (!session) {
+    return res.status(410).json({ status: 'expired', code: 'CAPTCHA_SESSION_EXPIRED', message: 'CAPTCHA 工作階段已過期，請重新準備表單' });
+  }
+  try {
+    const result = await finalizeOfficialBrowserSession(session, validation.captchaText);
+    if (result.status === 'captcha_required') {
+      session.captchaAttempts += 1;
+      if (session.captchaAttempts >= MAX_CAPTCHA_ATTEMPTS) {
+        await deleteCaptchaSession(session.sessionId);
+        return res.status(410).json({
+          status: 'expired',
+          code: 'CAPTCHA_ATTEMPTS_EXCEEDED',
+          message: 'CAPTCHA 輸入錯誤次數已達上限，請重新準備表單'
+        });
+      }
+      return res.status(202).json({
+        ...result,
+        sessionId: session.sessionId,
+        expiresAt: new Date(session.expiresAt).toISOString(),
+        attemptsRemaining: MAX_CAPTCHA_ATTEMPTS - session.captchaAttempts
+      });
+    }
+    await deleteCaptchaSession(session.sessionId);
+    return res.status(result.status === 'submitted' || result.status === 'email_verification_required' ? 200 : 202).json(result);
+  } catch (error) {
+    await deleteCaptchaSession(session.sessionId);
+    const code = error.code || 'RUNNER_FAILED';
+    const result = {
+      status: 'manual_required',
+      code,
+      stage: error.stage || 'final-submit',
+      message: '環境部最後送出無法完成，請改用人工流程'
+    };
+    if (process.env.DEBUG_RUNNER === 'true') result.detail = text(error.message, 300);
+    return res.status(500).json(result);
+  }
+});
+
 app.post('/submit', async (req, res) => {
   const expectedToken = String(process.env.RUNNER_TOKEN || '');
   if (expectedToken && req.get('x-runner-token') !== expectedToken) {
@@ -543,6 +818,14 @@ app.post('/submit', async (req, res) => {
     if (process.env.DEBUG_RUNNER === 'true') result.detail = text(error.message, 300);
     return res.status(code === 'OFFICIAL_SELECTOR_CHANGED' || code === 'OFFICIAL_OPTION_CHANGED' ? 422 : 500).json(result);
   }
+});
+
+async function closeAllCaptchaSessions() {
+  await Promise.all([...captchaSessions.keys()].map(deleteCaptchaSession));
+}
+
+process.once('SIGTERM', () => {
+  closeAllCaptchaSessions().finally(() => process.exit(0));
 });
 
 if (process.env.NODE_ENV !== 'test') app.listen(PORT, () => console.log(`Official form runner listening on ${PORT}`));

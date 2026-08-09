@@ -11,7 +11,7 @@
 5. 填寫污染地點：縣市、鄉鎮市區，以及地址、地段或地址備註其中一種。
 6. 選擇回覆方式（必選）、是否願意會同稽查，並填寫具名通報人的姓名、Email，以及市話或行動電話至少一項。
 
-本系統已將上述資料拆成快速選項、GPS 地址、天氣、自動說明、環境部第二階段預填欄位與本機通報人資料。現在由使用者在平台勾選具名陳情確認後，Cloud Run 才會執行環境部表單最後送出；遇到 CAPTCHA 或流程異常則回到人工處理。
+本系統已將上述資料拆成快速選項、GPS 地址、天氣、自動說明、環境部第二階段預填欄位與本機通報人資料。使用者在平台勾選具名陳情確認後，Cloud Run 先把表單填到 CAPTCHA；CAPTCHA 圖片回到平台由本人辨識，再由同一個短效工作階段完成送出。
 
 ## 目前已完成
 
@@ -22,17 +22,18 @@
 - 說明文字會附註：`本通報由 https://conlinkang.github.io/smelllogger/index.html 輔助填單。`
 - `official-form-runner/` 已用真實官方表單，以假資料完成第一至第三階段的本機 Playwright prepare 端到端測試；測試回傳 `202 READY_FOR_FINAL_REVIEW`，未送出案件。正式送出不使用假資料測試。
 - 已加入可選語音流程：Google Cloud Speech-to-Text 轉寫，Vertex AI Gemini 只回傳既有選項的候選分類；前端規則式說明文字仍是最後來源。
-- Cloud Run 已部署並完成驗證；目前 revision 為 `smelllogger-runner-00007-dfq`，服務網址為 `https://smelllogger-runner-442879625893.asia-east1.run.app`，公開健康檢查使用 `/health`。目前 `/health` 回傳 `officialSubmitEnabled:true` 與 `defaultMode:submit`。`/healthz` 在 Cloud Run 公開 URL 會被 Google Frontend 保留，因此不作為外部檢查路徑。
+- Cloud Run 已部署並完成驗證；目前 revision 為 `smelllogger-runner-00008-bb2`，服務網址為 `https://smelllogger-runner-442879625893.asia-east1.run.app`。`/health` 回傳 `officialSubmitEnabled:true`、`captchaRelayEnabled:true`、300 秒期限與 3 次 CAPTCHA 上限。
 
 ## Cloud Run 自動填單流程
 
 使用者按下「送出」後，系統按以下順序處理：
 
 1. 前端驗證 GPS、雲林縣、鄉鎮市區、異味選項與必要的具名資料。
-2. 通報資料以 HTTPS 傳給 Cloud Run；後端不保存 request body、不保存瀏覽器 session，請求結束即關閉 Playwright context。
+2. 通報資料以 HTTPS 傳給 Cloud Run；後端不保存 request body。為了銜接 CAPTCHA，Playwright 工作階段只暫存在單一 Cloud Run 執行個體的記憶體，預設 5 分鐘後清除。
 3. Playwright 開啟環境部表單，完成同意頁、異味分類、描述、污染地點與具名資料欄位。
-4. CAPTCHA、欄位異動、驗證失敗或網站要求人工操作時，回傳 `manual_required` 並提供官方網址。
-5. 請求為 `submit` 且通過固定確認字串、具名資料與地址驗證時，才會按下環境部表單最後送出；CAPTCHA、結果無法確認或任何流程異常都回傳 `manual_required`。
+4. `/prepare` 將 CAPTCHA 圖片與不可猜測的短效 session ID 回傳平台；CAPTCHA 只由使用者辨識，不交給 OCR 或 LLM。
+5. `/finalize` 在同一工作階段輸入使用者提供的 CAPTCHA 並按下最後送出。錯誤時更新圖片，可重試至多 3 次；逾時、超過次數、執行個體重啟或流程異常時，必須重新準備。
+6. 環境部若寄出認證信，使用者仍須到信箱完成認證；取得案件編號後才算正式完成報案。
 
 目前服務部署設定應維持：
 
@@ -55,7 +56,7 @@ officialSubmissionMode=submit
 ## 風險與前置條件
 
 - 官方網站沒有提供本系統可直接使用的正式 API，頁面以多頁 Web Forms 與動態 postback 運作，欄位或流程變更會使自動化失效。
-- CAPTCHA、反自動化規則、網站服務條款或人工確認要求，可能讓 Cloud Run 無法完成最後送出。
+- CAPTCHA 由使用者人工輸入，系統不繞過或自動破解；官方反自動化規則、網站服務條款或欄位變更仍可能讓 Cloud Run 無法完成最後送出。
 - Cloud Run、Cloud Build、Artifact Registry、Vertex AI 與 Speech-to-Text 可能依使用量計費；應設定預算通知、速率限制與日誌保留政策。
 - 具名陳情涉及真實個人資料與法律責任；在沒有人工確認與明確同意前，不應由後端無人值守提交。
 - 公開 GitHub Pages 無法安全保存 `RUNNER_TOKEN`，目前依靠精確 CORS、速率限制、無 body log、明確勾選與服務端固定確認條件。若要提高防濫用能力，後續加入受保護 broker、App Check、登入或短效簽章。

@@ -129,6 +129,20 @@
     .submit-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; padding: 8px; border: 1px solid #b9cde0; border-radius: 10px; background: rgba(255,255,255,.95); box-shadow: 0 6px 20px rgba(24,50,75,.14); }
     .submit-bar #submitButton { flex: 1 1 220px; margin: 0; min-height: 48px; font-size: 1.05rem; font-weight: 700; }
     .submit-bar #message { flex: 1 1 100%; margin: 0; }
+    .official-captcha { margin-top: 10px; padding: 14px; border: 2px solid #1769aa; border-radius: 12px; background: #f4f9ff; }
+    .official-captcha[hidden] { display: none; }
+    .official-captcha h4 { margin: 0 0 6px; color: #0d4775; }
+    .official-captcha p { margin: 5px 0; }
+    .captcha-image-wrap { display: inline-flex; margin: 10px 0; padding: 8px; border: 1px solid #b8cbe0; border-radius: 8px; background: #fff; }
+    #officialCaptchaImage { display: block; max-width: 100%; min-width: 180px; height: auto; }
+    .captcha-field { display: grid; gap: 5px; max-width: 320px; font-weight: 700; }
+    .captcha-field input { box-sizing: border-box; width: 100%; min-height: 48px; padding: 9px 12px; border: 2px solid #5278a8; border-radius: 8px; background: #fff; font: inherit; font-size: 1.15rem; letter-spacing: .18em; text-transform: uppercase; }
+    .captcha-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .captcha-actions button { min-height: 48px; padding: 9px 14px; border: 1px solid #1769aa; border-radius: 8px; background: #fff; color: #0d4775; font: inherit; font-weight: 800; cursor: pointer; }
+    .captcha-actions button.primary { background: #1769aa; color: #fff; }
+    .captcha-actions button:disabled { cursor: not-allowed; opacity: .5; }
+    #officialCaptchaStatus { color: #8a4300; font-weight: 700; }
+    #officialCaptchaExpiry { color: #5d7186; font-size: .86rem; }
     .official-review { margin-top: 8px; padding: 12px; border: 2px solid #d6a72c; border-radius: 10px; background: #fff9e6; color: #4c3b0b; }
     .official-review[hidden] { display: none; }
     .official-review h4 { margin: 0 0 6px; color: #6b4f00; }
@@ -179,6 +193,10 @@
       .voice-assist h5 { font-size: 1rem; }
       .voice-actions { display: grid; grid-template-columns: 1fr; }
       .voice-actions button { width: 100%; min-height: 50px; }
+      .captcha-image-wrap { display: flex; }
+      .captcha-field { max-width: none; }
+      .captcha-actions { display: grid; grid-template-columns: 1fr; }
+      .captcha-actions button { width: 100%; }
       .official-review-actions { display: grid; grid-template-columns: 1fr; }
       .official-review-actions a, .official-review-actions button { width: 100%; box-sizing: border-box; text-align: center; }
       .simulation-grid { grid-template-columns: 1fr; }
@@ -284,6 +302,20 @@
       <p id="submitModeHint" class="checklist-hint">尚未完成定位，請先選擇通報位置；完成定位後才可送出平台紀錄。</p>
     </section>
     <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton" data-submission-mode="location-required" disabled>請先完成定位</button><p id="message" role="status" aria-live="polite"></p></div>
+    <section id="officialCaptchaPanel" class="official-captcha" hidden aria-labelledby="official-captcha-title">
+      <h4 id="official-captcha-title">環境部表單已填到最後驗證</h4>
+      <p>Google Cloud 已完成表單資料填寫。請由本人辨識並輸入下方 CAPTCHA；系統不會使用 OCR 或 LLM 自動破解。</p>
+      <div id="officialCaptchaImageWrap" class="captcha-image-wrap"><img id="officialCaptchaImage" alt="環境部 CAPTCHA 驗證碼"></div>
+      <label id="officialCaptchaField" class="captcha-field" for="officialCaptchaInput">輸入驗證碼
+        <input id="officialCaptchaInput" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="12" spellcheck="false">
+      </label>
+      <p id="officialCaptchaExpiry"></p>
+      <div class="captcha-actions">
+        <button type="button" id="officialCaptchaSubmit" class="primary" disabled>輸入驗證碼並確認送出</button>
+        <button type="button" id="officialCaptchaRestart" hidden>重新準備環境部表單</button>
+      </div>
+      <p id="officialCaptchaStatus" role="status" aria-live="polite"></p>
+    </section>
     <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
       <h4 id="official-review-title">下一步：人工檢查並完成最後送出</h4>
       <p>雲端服務已完成環境部表單的資料準備，現在需要你在環境部網站檢查內容並按下環境部表單的最後「送出」。</p>
@@ -327,12 +359,12 @@
 
   <footer>網頁製作人: <a href="https://che.ccu.edu.tw/p/405-1103-60621,c1154.php?Lang=zh-tw" target="_blank" rel="noopener">康嘉麟教授(中正大學化工系)</a></footer>
 
-  <script src="assets/js/app-config.js?v=20260809-4"></script>
+  <script src="assets/js/app-config.js?v=20260809-5"></script>
   <script src="assets/js/date-utils.js"></script>
   <script src="assets/js/weather-client.js"></script>
-  <script src="assets/js/submission-client.js?v=20260809-2"></script>
+  <script src="assets/js/submission-client.js?v=20260809-3"></script>
   <script src="assets/js/map-loader.js?v=20260809" defer></script>
-  <script src="assets/js/report-form.js?v=20260809-8" defer></script>
+  <script src="assets/js/report-form.js?v=20260809-9" defer></script>
   <script src="assets/js/voice-assistant.js?v=20260809-1" defer></script>
 
   <script>
@@ -350,6 +382,9 @@
       document.getElementById('officialReviewCopy')?.addEventListener('click', () => {
         document.getElementById('copyReportPacket')?.click();
       });
+      document.getElementById('officialCaptchaInput')?.addEventListener('input', updateCaptchaSubmitButton);
+      document.getElementById('officialCaptchaSubmit')?.addEventListener('click', handleCaptchaFinalize);
+      document.getElementById('officialCaptchaRestart')?.addEventListener('click', handleCaptchaRestart);
       document.getElementById('simulationCheck')?.addEventListener('change', (event) => {
         document.getElementById('simulationConfirm').disabled = !event.target.checked;
       });
@@ -377,6 +412,10 @@
     let selectedGrid = null;
     let isSubmitted = false;
     let isSubmitting = false;
+    let isFinalizingOfficial = false;
+    let officialCaptchaSessionId = '';
+    let officialCaptchaExpiresAt = 0;
+    let officialCaptchaTimer = null;
     const arrowOverlays = [];
     const gridCells = [];
     const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心座標
@@ -393,7 +432,7 @@
         ? window.isReporterCompleteForOfficial(complaint)
         : false;
       const consent = Boolean(document.getElementById('officialSubmissionConfirmed')?.checked);
-      const officialEndpointReady = Boolean(window.APP_CONFIG?.officialSubmissionEndpoint);
+      const officialEndpointReady = Boolean(window.APP_CONFIG?.officialPrepareEndpoint && window.APP_CONFIG?.officialFinalizeEndpoint);
       const officialReady = Boolean(currentPosition && reporterComplete && consent && officialEndpointReady);
       setItem('checkLocation', Boolean(currentPosition), '定位完成', '先完成定位');
       setItem('checkReporter', reporterComplete, '環境部個資完整', '環境部個資未完成');
@@ -440,6 +479,148 @@
         link.href = pageUrl;
       }
       requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+
+    function clearOfficialCaptchaTimer() {
+      if (officialCaptchaTimer) window.clearInterval(officialCaptchaTimer);
+      officialCaptchaTimer = null;
+    }
+
+    function updateCaptchaSubmitButton() {
+      const button = document.getElementById('officialCaptchaSubmit');
+      const input = document.getElementById('officialCaptchaInput');
+      const field = document.getElementById('officialCaptchaField');
+      if (!button) return;
+      const captchaReady = field?.hidden || Boolean(input?.value.trim());
+      button.disabled = Boolean(isFinalizingOfficial || !officialCaptchaSessionId || !captchaReady || Date.now() >= officialCaptchaExpiresAt);
+    }
+
+    function updateCaptchaExpiry() {
+      const expiry = document.getElementById('officialCaptchaExpiry');
+      const restart = document.getElementById('officialCaptchaRestart');
+      const status = document.getElementById('officialCaptchaStatus');
+      const remainingSeconds = Math.max(0, Math.ceil((officialCaptchaExpiresAt - Date.now()) / 1000));
+      if (expiry) expiry.textContent = remainingSeconds > 0
+        ? `安全工作階段將於 ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')} 後自動清除。`
+        : '安全工作階段已過期。';
+      if (remainingSeconds <= 0) {
+        clearOfficialCaptchaTimer();
+        if (restart) restart.hidden = false;
+        if (status) status.textContent = '工作階段已過期，請重新準備環境部表單。';
+      }
+      updateCaptchaSubmitButton();
+    }
+
+    function setOfficialCaptchaPanelVisible(visible, result) {
+      const panel = document.getElementById('officialCaptchaPanel');
+      if (!panel) return;
+      panel.hidden = !visible;
+      if (!visible) {
+        clearOfficialCaptchaTimer();
+        return;
+      }
+      officialCaptchaSessionId = result?.sessionId || officialCaptchaSessionId;
+      officialCaptchaExpiresAt = Date.parse(result?.expiresAt || '') || (Date.now() + Number(result?.expiresInSeconds || 300) * 1000);
+      const hasCaptcha = result?.status === 'captcha_required';
+      const imageWrap = document.getElementById('officialCaptchaImageWrap');
+      const image = document.getElementById('officialCaptchaImage');
+      const field = document.getElementById('officialCaptchaField');
+      const input = document.getElementById('officialCaptchaInput');
+      const submit = document.getElementById('officialCaptchaSubmit');
+      const restart = document.getElementById('officialCaptchaRestart');
+      const status = document.getElementById('officialCaptchaStatus');
+      if (imageWrap) imageWrap.hidden = !hasCaptcha;
+      if (field) field.hidden = !hasCaptcha;
+      if (image && result?.captchaImage) image.src = result.captchaImage;
+      if (input) input.value = '';
+      if (submit) submit.textContent = hasCaptcha ? '輸入驗證碼並確認送出' : '確認送出環境部陳情';
+      if (restart) restart.hidden = true;
+      if (status) status.textContent = hasCaptcha
+        ? '請辨識圖片中的驗證碼；輸入後由 Cloud Run 在同一工作階段完成送出。'
+        : '環境部表單資料已準備完成，請確認後送出。';
+      clearOfficialCaptchaTimer();
+      officialCaptchaTimer = window.setInterval(updateCaptchaExpiry, 1000);
+      updateCaptchaExpiry();
+      if (hasCaptcha) input?.focus();
+      requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+
+    async function prepareOfficialCaptchaFlow() {
+      const config = window.APP_CONFIG || {};
+      if (!config.officialPrepareEndpoint) throw new Error('環境部資料準備服務尚未設定');
+      const result = await prepareOfficialComplaint(getOfficialSubmissionPacket('prepare'));
+      if (result.status === 'captcha_required' || result.status === 'ready_for_final_review') {
+        setOfficialReviewPanelVisible(false);
+        setOfficialSimulationVisible(false);
+        setOfficialCaptchaPanelVisible(true, result);
+        return result;
+      }
+      throw Object.assign(new Error('環境部資料準備未完成'), { code: result.code || 'PREPARE_FAILED', result });
+    }
+
+    async function handleCaptchaRestart() {
+      const status = document.getElementById('officialCaptchaStatus');
+      const restart = document.getElementById('officialCaptchaRestart');
+      if (restart) restart.disabled = true;
+      if (status) status.textContent = '重新準備環境部表單中，請稍候…';
+      try {
+        await prepareOfficialCaptchaFlow();
+      } catch (error) {
+        if (status) status.textContent = `重新準備失敗（${error.code || '網路錯誤'}），請稍後再試。`;
+      } finally {
+        if (restart) restart.disabled = false;
+      }
+    }
+
+    async function handleCaptchaFinalize() {
+      if (isFinalizingOfficial || !officialCaptchaSessionId) return;
+      const input = document.getElementById('officialCaptchaInput');
+      const status = document.getElementById('officialCaptchaStatus');
+      const button = document.getElementById('officialCaptchaSubmit');
+      const captchaText = input?.value.trim() || '';
+      isFinalizingOfficial = true;
+      updateCaptchaSubmitButton();
+      if (button) button.textContent = '環境部送出中…';
+      if (status) status.textContent = '正在同一個 Cloud Run 瀏覽器工作階段輸入驗證碼並送出…';
+      try {
+        const result = await finalizeOfficialComplaint(officialCaptchaSessionId, captchaText);
+        if (result.status === 'captcha_required') {
+          setOfficialCaptchaPanelVisible(true, result);
+          if (status) status.textContent = '驗證碼不正確或已更新，請依新圖片重新輸入。';
+          return;
+        }
+        officialCaptchaSessionId = '';
+        clearOfficialCaptchaTimer();
+        if (result.status === 'submitted') {
+          if (status) status.textContent = '環境部陳情已完成送出。';
+          if (button) button.textContent = '環境部已送出';
+          document.getElementById('message').textContent = '平台紀錄與環境部陳情均已送出。';
+          return;
+        }
+        if (result.status === 'email_verification_required') {
+          if (status) status.textContent = '環境部表單已送出，請至電子信箱完成認證；取得案件編號後才算完成報案。';
+          if (button) button.textContent = '已送出，待信箱認證';
+          document.getElementById('message').textContent = '平台紀錄已送出；環境部表單已寄發認證信，請至信箱完成認證。';
+          return;
+        }
+        setOfficialCaptchaPanelVisible(false);
+        setOfficialReviewPanelVisible(true, result.pageUrl);
+      } catch (error) {
+        if (error.code === 'CAPTCHA_SESSION_EXPIRED' || error.code === 'CAPTCHA_ATTEMPTS_EXCEEDED') {
+          officialCaptchaExpiresAt = 0;
+          updateCaptchaExpiry();
+          if (status) status.textContent = error.code === 'CAPTCHA_ATTEMPTS_EXCEEDED'
+            ? '驗證碼錯誤次數已達上限，請重新準備環境部表單。'
+            : '工作階段已過期，請重新準備環境部表單。';
+          return;
+        }
+        setOfficialCaptchaPanelVisible(false);
+        setOfficialReviewPanelVisible(true, error.result?.pageUrl);
+        document.getElementById('message').textContent = `環境部最後送出未完成（${error.code || '網路錯誤'}），請使用人工處理入口。`;
+      } finally {
+        isFinalizingOfficial = false;
+        updateCaptchaSubmitButton();
+      }
     }
 
     function setOfficialSimulationVisible(visible, complaint) {
@@ -629,40 +810,34 @@
           ? window.isReporterCompleteForOfficial(complaint)
           : false;
         const config = window.APP_CONFIG || {};
-        const officialReady = Boolean(complaint.officialSubmissionConfirmed && reporterComplete && config.officialSubmissionEndpoint);
+        const officialReady = Boolean(complaint.officialSubmissionConfirmed && reporterComplete && config.officialPrepareEndpoint && config.officialFinalizeEndpoint);
         let officialText = !reporterComplete
           ? '本次只送出平台紀錄；環境部個資未完成，因此不送出環境部。'
           : !complaint.officialSubmissionConfirmed
             ? '本次只送出平台紀錄；尚未勾選環境部確認，因此不送出環境部。'
-            : !config.officialSubmissionEndpoint
+            : !(config.officialPrepareEndpoint && config.officialFinalizeEndpoint)
               ? '本次只送出平台紀錄；環境部填單服務尚未啟用。'
               : '請至環境部系統確認正式提交。';
         if (officialReady) {
           try {
-            const officialResult = await submitOfficialComplaint(getOfficialSubmissionPacket());
-            officialText = officialResult.status === 'submitted'
-              ? '環境部陳情已完成送出。'
-              : officialResult.status === 'manual_required'
-                ? '已填到環境部確認階段，請使用下方人工確認區完成最後送出。'
-                : '環境部填單服務尚未完成，請至環境部系統確認提交。';
-            if (officialResult.status === 'manual_required') {
-              if (config.officialSubmissionMode === 'prepare') {
-                setOfficialReviewPanelVisible(false);
-                setOfficialSimulationVisible(true, complaint);
-                officialText = '已進入測試模擬確認畫面（不會送出真實案件）。';
-              } else {
-                setOfficialSimulationVisible(false);
-                setOfficialReviewPanelVisible(true);
-                officialText = '環境部填單已停在人工確認階段，請使用下方入口檢查並完成最後送出。';
-              }
+            if (config.officialSubmissionMode === 'prepare') {
+              setOfficialReviewPanelVisible(false);
+              setOfficialSimulationVisible(true, complaint);
+              officialText = '已進入測試模擬確認畫面（不會送出真實案件）。';
+            } else {
+              const officialResult = await prepareOfficialCaptchaFlow();
+              officialText = officialResult.status === 'captcha_required'
+                ? '環境部表單已填到最後 CAPTCHA，請在下方輸入驗證碼並確認送出。'
+                : '環境部表單資料已準備完成，請在下方確認送出。';
             }
           } catch (officialError) {
-            console.warn('環境部填單服務未完成：', officialError);
+            console.warn('環境部資料準備服務未完成：', officialError);
+            setOfficialCaptchaPanelVisible(false);
             setOfficialSimulationVisible(false);
             setOfficialReviewPanelVisible(true);
             officialText = officialError.name === 'AbortError'
-              ? '環境部填單服務逾時，平台紀錄仍已送出；請使用下方人工確認入口完成提交。'
-              : `環境部填單服務未完成（${officialError.code || '網路錯誤'}），平台紀錄仍已送出；請使用下方人工確認入口完成提交。`;
+              ? '環境部資料準備逾時，平台紀錄仍已送出；請使用下方人工確認入口完成提交。'
+              : `環境部資料準備未完成（${officialError.code || '網路錯誤'}），平台紀錄仍已送出；請使用下方人工確認入口完成提交。`;
           }
         } else if (complaint.officialSubmissionConfirmed && !reporterComplete) {
           officialText = '平台紀錄已送出；具名資料不完整，未啟動環境部填單。請確認聯絡地址包含縣市與鄉鎮市區，例如「雲林縣斗六市○○路1號」。';
