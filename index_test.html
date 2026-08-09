@@ -96,6 +96,15 @@
     .submit-bar { position: sticky; bottom: 10px; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; padding: 8px; border: 1px solid #b9cde0; border-radius: 10px; background: rgba(255,255,255,.95); box-shadow: 0 6px 20px rgba(24,50,75,.14); backdrop-filter: blur(8px); }
     .submit-bar #submitButton { flex: 1 1 220px; margin: 0; min-height: 48px; font-size: 1.05rem; font-weight: 700; }
     .submit-bar #message { flex: 1 1 100%; margin: 0; }
+    .official-review { margin-top: 8px; padding: 12px; border: 2px solid #d6a72c; border-radius: 10px; background: #fff9e6; color: #4c3b0b; }
+    .official-review[hidden] { display: none; }
+    .official-review h4 { margin: 0 0 6px; color: #6b4f00; }
+    .official-review p { margin: 5px 0; }
+    .official-review ol { margin: 8px 0; padding-left: 22px; }
+    .official-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .official-review-actions a, .official-review-actions button { min-height: 44px; padding: 9px 12px; border: 1px solid #856404; border-radius: 7px; background: #fff; color: #5b4300; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+    .official-review-actions a.primary { background: #1769aa; border-color: #1769aa; color: #fff; }
+    .official-review-note { color: #665a36; font-size: .86rem; }
     @media (max-width: 600px) {
       body { padding: 12px 10px calc(86px + env(safe-area-inset-bottom)); }
       h3 { margin-bottom: 8px; font-size: 1.35rem; }
@@ -118,6 +127,8 @@
       .impact-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
       .report-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
       .report-actions a, .report-actions button, .generate-description { width: 100%; min-height: 42px; box-sizing: border-box; }
+      .official-review-actions { display: grid; grid-template-columns: 1fr; }
+      .official-review-actions a, .official-review-actions button { width: 100%; box-sizing: border-box; text-align: center; }
       .submit-bar { bottom: calc(8px + env(safe-area-inset-bottom)); margin-left: -2px; margin-right: -2px; }
       .submit-bar #submitButton { flex-basis: 100%; }
       footer { padding-bottom: 8px; font-size: .88rem; }
@@ -160,6 +171,20 @@
   
   <form id="smellForm">
     <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton">送出平台紀錄＋官方填單</button><p id="message" role="status" aria-live="polite"></p></div>
+    <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
+      <h4 id="official-review-title">下一步：人工檢查並完成最後送出</h4>
+      <p>雲端服務已完成官方表單的資料準備，現在需要你在環境部網站檢查內容並按下官方表單的最後「送出」。</p>
+      <ol>
+        <li>按「開啟環境部公害陳情表單」。</li>
+        <li>按「複製完整通報資料」，依資料貼入官方表單並檢查。</li>
+        <li>在環境部表單最後確認後，按官方的「送出」按鈕。</li>
+      </ol>
+      <div class="official-review-actions">
+        <a id="officialReviewLink" class="primary" href="https://ww3.moenv.gov.tw/Public/Case_Add.aspx" target="_blank" rel="noopener">開啟環境部公害陳情表單</a>
+        <button type="button" id="officialReviewCopy">複製完整通報資料</button>
+      </div>
+      <p class="official-review-note">目前雲端虛擬瀏覽器與你的 Chrome 是不同工作階段，因此官方表單不會自動帶入；此區提供人工確認與快速複製資料。</p>
+    </section>
     <div class="options">
       <label>臭味程度:</label>
       <label><input type="radio" name="smellLevel" value="1" required> 1(略有臭味)</label>
@@ -244,6 +269,9 @@
           element.addEventListener('input', updateSubmissionChecklist);
           element.addEventListener('change', updateSubmissionChecklist);
         });
+      document.getElementById('officialReviewCopy')?.addEventListener('click', () => {
+        document.getElementById('copyReportPacket')?.click();
+      });
       updateSubmissionChecklist();
       loadGoogleMaps(initMap).catch(() => {
         document.getElementById('locationMessage').textContent = '地圖尚未啟用，請聯絡系統管理者。';
@@ -278,6 +306,18 @@
       setItem('checkLocation', Boolean(currentPosition), '定位完成', '先完成定位');
       setItem('checkReporter', reporterComplete, '個資完整', '填寫四項個資');
       setItem('checkConsent', consent, '官方已確認', '勾選官方確認');
+    }
+
+    function setOfficialReviewPanelVisible(visible, pageUrl) {
+      const panel = document.getElementById('officialReviewPanel');
+      if (!panel) return;
+      panel.hidden = !visible;
+      if (!visible) return;
+      const link = document.getElementById('officialReviewLink');
+      if (link && typeof pageUrl === 'string' && pageUrl.startsWith('https://ww3.moenv.gov.tw/Public/')) {
+        link.href = pageUrl;
+      }
+      requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
 
     function initMap() {
@@ -441,6 +481,7 @@
         complaint: getPlatformComplaintData()
       };
       isSubmitting = true;
+      setOfficialReviewPanelVisible(false);
       submitButton.disabled = true;
       submitButton.textContent = '送出中...';
       try {
@@ -457,8 +498,11 @@
             officialText = officialResult.status === 'submitted'
               ? '官方陳情已完成送出。'
               : officialResult.status === 'manual_required'
-                ? '已填到官方確認階段，請人工檢查後完成最後送出。'
+                ? '已填到官方確認階段，請使用下方人工確認區完成最後送出。'
                 : '官方填單服務尚未完成，請至環境部系統確認提交。';
+            if (officialResult.status === 'manual_required') {
+              setOfficialReviewPanelVisible(true, officialResult.pageUrl);
+            }
           } catch (officialError) {
             console.warn('官方填單服務未完成：', officialError);
             officialText = officialError.name === 'AbortError'
