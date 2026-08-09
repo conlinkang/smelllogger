@@ -163,7 +163,8 @@
   
   <form id="smellForm">
     <label for="smellTime">聞到的時間:</label>
-    <input id="smellTime" type="datetime-local" name="smellTime" required>
+    <input id="smellTime" type="datetime-local" name="smellTime" required disabled aria-describedby="smellTimeHint">
+    <small id="smellTimeHint" class="reporter-storage-note">由系統自動記錄本次定位與通報時間。</small>
     <br>
     <section class="report-section" aria-labelledby="report-title">
       <h4 id="report-title">環境部通報資料（快速選擇）</h4>
