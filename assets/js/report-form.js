@@ -243,14 +243,15 @@
   }
 
   function formatWeatherInfo(weatherInfo, prefix = '系統取得的現場氣象') {
-    if (!weatherInfo) return '';
-    const parts = [];
-    if (weatherInfo.weather && weatherInfo.weather !== '未取得') parts.push(weatherInfo.weather);
-    if (Number.isFinite(weatherInfo.temperature)) parts.push(`溫度 ${weatherInfo.temperature}°C`);
-    if (Number.isFinite(weatherInfo.windSpeed)) parts.push(`風速 ${weatherInfo.windSpeed} m/s`);
-    if (Number.isFinite(weatherInfo.windDirection)) parts.push(`風向 ${weatherInfo.windDirection}°`);
+    const weatherType = weatherInfo && String(weatherInfo.weather || '').trim() && weatherInfo.weather !== '未取得'
+      ? String(weatherInfo.weather).trim()
+      : '天氣型態未取得';
+    const parts = [`天氣型態：${weatherType}`];
+    if (Number.isFinite(weatherInfo?.temperature)) parts.push(`溫度 ${weatherInfo.temperature}°C`);
+    if (Number.isFinite(weatherInfo?.windSpeed)) parts.push(`風速 ${weatherInfo.windSpeed} m/s`);
+    if (Number.isFinite(weatherInfo?.windDirection)) parts.push(`風向 ${weatherInfo.windDirection}°`);
     if (!parts.length) return '';
-    const provider = weatherInfo.provider ? `（來源：${weatherInfo.provider}）` : '';
+    const provider = weatherInfo?.provider ? `（來源：${weatherInfo.provider}）` : '';
     return `${prefix}：${parts.join('、')}${provider}。`;
   }
 

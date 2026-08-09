@@ -7,6 +7,41 @@
     return Number.isFinite(Number(value)) ? Number(value) : null;
   }
 
+  function describeOpenMeteoWeather(code) {
+    const weatherCode = Number(code);
+    const labels = new Map([
+      [0, '晴天'],
+      [1, '大致晴朗'],
+      [2, '多雲'],
+      [3, '陰天'],
+      [45, '有霧'],
+      [48, '霧凇'],
+      [51, '毛毛雨'],
+      [53, '毛毛雨'],
+      [55, '較強毛毛雨'],
+      [56, '凍毛毛雨'],
+      [57, '較強凍毛毛雨'],
+      [61, '小雨'],
+      [63, '中雨'],
+      [65, '大雨'],
+      [66, '凍雨'],
+      [67, '較強凍雨'],
+      [71, '小雪'],
+      [73, '中雪'],
+      [75, '大雪'],
+      [77, '雪粒'],
+      [80, '短暫陣雨'],
+      [81, '陣雨'],
+      [82, '強陣雨'],
+      [85, '短暫陣雪'],
+      [86, '強陣雪'],
+      [95, '雷雨'],
+      [96, '雷雨伴隨冰雹'],
+      [99, '強雷雨伴隨冰雹']
+    ]);
+    return labels.get(weatherCode) || '天氣型態未取得';
+  }
+
   async function fetchOpenWeather(latitude, longitude, config) {
     const params = new URLSearchParams({
       lat: String(latitude),
@@ -33,7 +68,7 @@
     const params = new URLSearchParams({
       latitude: String(latitude),
       longitude: String(longitude),
-      current: 'temperature_2m,wind_speed_10m,wind_direction_10m',
+      current: 'temperature_2m,wind_speed_10m,wind_direction_10m,weather_code',
       wind_speed_unit: 'ms',
       timezone: 'Asia/Taipei'
     });
@@ -42,7 +77,7 @@
     const data = await response.json();
     const current = data.current || {};
     return {
-      weather: '目前天氣資料',
+      weather: describeOpenMeteoWeather(current.weather_code),
       temperature: asNumber(current.temperature_2m),
       windSpeed: asNumber(current.wind_speed_10m),
       windDirection: asNumber(current.wind_direction_10m),
