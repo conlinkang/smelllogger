@@ -155,7 +155,7 @@ try {
   await named.page.locator('#officialCaptchaSubmit').click();
   await named.page.waitForFunction(() => document.querySelector('#officialCaptchaStatus')?.textContent?.includes('重新輸入'));
   assert.equal(namedState.finalizeCalls, 1);
-  assert.match(await named.page.locator('#officialCaptchaStatus').innerText(), /驗證碼不正確|重新輸入/);
+  assert.match(await named.page.locator('#officialCaptchaStatus').innerText(), /尚可嘗試 2 次/);
   assert.equal(await named.page.locator('#officialCaptchaInput').inputValue(), '', 'wrong CAPTCHA should clear the input for a retry');
   await named.page.locator('#officialCaptchaInput').fill('9N9PF');
   await named.page.locator('#officialCaptchaSubmit').click();

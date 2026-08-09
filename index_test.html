@@ -586,7 +586,10 @@
         const result = await finalizeOfficialComplaint(officialCaptchaSessionId, captchaText);
         if (result.status === 'captcha_required') {
           setOfficialCaptchaPanelVisible(true, result);
-          if (status) status.textContent = '驗證碼不正確或已更新，請依新圖片重新輸入。';
+          const remaining = Number(result.attemptsRemaining);
+          if (status) status.textContent = Number.isFinite(remaining)
+            ? `驗證碼不正確或已更新，請依新圖片重新輸入（尚可嘗試 ${remaining} 次）。`
+            : '驗證碼不正確或已更新，請依新圖片重新輸入。';
           return;
         }
         officialCaptchaSessionId = '';
