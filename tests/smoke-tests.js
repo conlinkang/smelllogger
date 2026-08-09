@@ -181,6 +181,7 @@ const summaryElements = {
   summaryText: { textContent: '' },
   trendChart: {
     children: [],
+    dataset: {},
     replaceChildren() { this.children = []; },
     appendChild(child) { this.children.push(child); }
   }
@@ -192,7 +193,7 @@ const summaryDocument = {
 };
 const summarySandbox = {
   document: summaryDocument,
-  window: { APP_DATE: { hourKey: value => value.slice(0, 13) + ':00' } },
+  window: { APP_DATE: { dateKey: value => value.slice(0, 10), hourKey: value => value.slice(0, 13) + ':00' } },
   console
 };
 runScript('assets/js/analysis-ui.js', summarySandbox);

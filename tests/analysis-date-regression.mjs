@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '../official-form-runner/node_modules/playwright/index.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const proofDir = process.env.PROOF_DIR ? path.resolve(process.env.PROOF_DIR) : '';
+if (proofDir) fs.mkdirSync(proofDir, { recursive: true });
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -124,6 +126,16 @@ try {
   assert.equal(await page.locator('#filterDate').inputValue(), '2024-10', '2024-10 must be selectable in monthly analysis');
   assert.equal(await page.locator('#recordCount').textContent(), '2', '2024-10 monthly records should be displayed');
   assert.equal(await page.locator('#trendChart svg').count(), 1, '2024-10 should render a trend chart');
+  assert.equal(await page.locator('#trendChart').getAttribute('data-granularity'), 'day', 'monthly trend should aggregate by day');
+  assert.match(await page.locator('#summaryText').innerText(), /每日平均/);
+  const trendMetrics = await page.locator('#trendChart').evaluate(element => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    chartHeight: element.querySelector('svg')?.getBoundingClientRect().height || 0
+  }));
+  assert.ok(trendMetrics.scrollWidth <= trendMetrics.clientWidth + 1, 'mobile trend chart should not require horizontal scrolling');
+  assert.ok(trendMetrics.chartHeight <= 160, 'mobile trend chart should remain compact');
+  if (proofDir) await page.locator('.dashboard-summary').screenshot({ path: path.join(proofDir, 'analysis-mobile-compact-trend.png') });
 
   const timeSlider = page.locator('#timeSlider');
   assert.equal(await timeSlider.count(), 1, 'compact time slider should be rendered');
