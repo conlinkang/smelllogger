@@ -270,7 +270,7 @@ const platformOnlyRecord = backendSandbox.buildRecord_(blankReporterPayload, new
 assert.doesNotMatch(platformOnlyRecord['通報資料JSON'], /"reporter":|康嘉麟|0963158502|conlinkang@gmail\.com|科福一街156號/);
 assert.match(platformOnlyRecord['通報資料JSON'], /platform-only/);
 
-for (const file of ['index_test.html', 'analysis_test.html']) {
+for (const file of ['index.html', 'analysis.html', 'index_test.html', 'analysis_test.html']) {
   const source = read(file);
   assert.doesNotMatch(source, /AIzaSy|b142fac|openweathermap|api\.ipify/);
   assert.doesNotMatch(source, /callback=initMap/);
@@ -278,14 +278,14 @@ for (const file of ['index_test.html', 'analysis_test.html']) {
   assert.doesNotMatch(source, /0963158502|conlinkang@gmail\.com|科福一街156號/);
   assert.doesNotMatch(source, /window\.addEventListener\(['"]load['"]/);
 }
-for (const file of ['index_test.html']) {
+for (const file of ['index.html', 'index_test.html']) {
   const source = read(file);
   for (const label of ['動物', '沼氣（瓦斯）', '燃燒稻草', '露天燃燒', '廚餘蒸煮異味', '施肥或堆肥']) {
     assert.match(source, new RegExp(label));
   }
   assert.match(source, /officialSubmissionConfirmed/);
 }
-for (const file of ['analysis_test.html']) {
+for (const file of ['analysis.html', 'analysis_test.html']) {
   const source = read(file);
   assert.doesNotMatch(source, /filterRegion/);
   assert.match(source, /雲林縣/);
@@ -293,7 +293,7 @@ for (const file of ['analysis_test.html']) {
   assert.match(source, /recordMatchesRegion/);
 }
 
-for (const file of ['index_test.html']) {
+for (const file of ['index.html', 'index_test.html']) {
   const source = read(file);
    assert.match(source, /康嘉麟教授\(中正大學化工系\)/);
   assert.match(source, /voiceStartButton/);

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '../official-form-runner/node_modules/playwright/index.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const indexPage = process.env.INDEX_PAGE || 'index_test.html';
 const proofDir = process.env.PROOF_SCREENSHOT_DIR ? path.resolve(process.env.PROOF_SCREENSHOT_DIR) : '';
 const proofCaptchaImage = process.env.PROOF_CAPTCHA_IMAGE && fs.existsSync(process.env.PROOF_CAPTCHA_IMAGE)
   ? `data:image/png;base64,${fs.readFileSync(process.env.PROOF_CAPTCHA_IMAGE).toString('base64')}`
@@ -128,7 +129,7 @@ async function openIndex(browser, state, { withLocation = true } = {}) {
   });
   const page = await context.newPage();
   await configureRoutes(page, state);
-  await page.goto(`${state.baseUrl}/index_test.html`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${state.baseUrl}/${indexPage}`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.querySelector('#map')?.dataset.mapReady === 'true');
   await page.waitForTimeout(500);
   return { context, page };

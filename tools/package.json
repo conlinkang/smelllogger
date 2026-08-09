@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node ../tests/smoke-tests.js && node ../tests/runner-tests.mjs",
-    "test:browser": "node ../tests/browser-integration.mjs && node ../tests/analysis-date-regression.mjs"
+    "test": "node ../tests/smoke-tests.js && node ../tests/page-promotion.mjs && node ../tests/runner-tests.mjs",
+    "test:browser": "node ../tests/browser-integration.mjs && node ../tests/analysis-date-regression.mjs",
+    "test:release": "node ../tests/release-browser-tests.mjs"
   }
 }
