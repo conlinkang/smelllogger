@@ -95,6 +95,8 @@ try {
   assert.ok(namedButtonBox && namedButtonBox.y >= 0, 'submit button must be rendered at the end of the form');
   await named.page.locator('#submitButton').scrollIntoViewIfNeeded();
   assert.equal(await named.page.locator('#submitButton').isVisible(), true, 'submit button must be reachable after reviewing the form');
+  const formOrder = await named.page.evaluate(() => ['evidenceImage', 'map', 'checkLocation', 'submitButton'].map(id => document.getElementById(id)?.getBoundingClientRect().top || -1));
+  assert.ok(formOrder[0] < formOrder[1] && formOrder[1] < formOrder[2] && formOrder[2] < formOrder[3], 'evidence, map, checklist, and submit controls should follow the review order');
   await named.page.locator('#reporterName').fill('integration-test');
   await named.page.locator('#reporterPhone').fill('0900000000');
   await named.page.locator('#reporterEmail').fill('integration@example.com');
