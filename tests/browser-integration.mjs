@@ -99,6 +99,7 @@ try {
 
   const namedState = { baseUrl, platformPayload: null, officialPayload: null };
   const named = await openIndex(browser, namedState);
+  assert.equal(await named.page.locator('#officialReviewLink').isVisible(), false, 'official form link should be hidden before a fallback is needed');
   const namedButtonBox = await named.page.locator('#submitButton').boundingBox();
   assert.ok(namedButtonBox && namedButtonBox.y >= 0, 'submit button must be rendered at the end of the form');
   await named.page.locator('#submitButton').scrollIntoViewIfNeeded();
