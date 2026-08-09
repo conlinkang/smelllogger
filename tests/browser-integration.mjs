@@ -62,6 +62,19 @@ async function configureRoutes(page, state) {
   });
   await page.route('**/smelllogger-runner-*.run.app/prepare', route => {
     state.preparePayload = route.request().postDataJSON();
+    if (state.prepareReady) {
+      return route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'ready_for_final_review',
+          code: 'READY_FOR_FINAL_REVIEW',
+          sessionId: 'integration_session_abcdefghijklmnopqrstuvwxyz123456',
+          expiresAt: new Date(Date.now() + 300000).toISOString(),
+          expiresInSeconds: 300
+        })
+      });
+    }
     return route.fulfill({
       status: 202,
       contentType: 'application/json',
@@ -88,7 +101,7 @@ async function configureRoutes(page, state) {
           sessionId: 'integration_session_abcdefghijklmnopqrstuvwxyz123456',
           captchaImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=',
           expiresAt: new Date(Date.now() + 240000).toISOString(),
-          attemptsRemaining: 2
+          attemptsRemaining: state.prepareReady ? 3 : 2
         })
       });
     }
@@ -170,6 +183,24 @@ try {
   assert.equal(JSON.stringify(namedState.platformPayload).includes('0900000000'), false);
   assert.equal(JSON.stringify(namedState.platformPayload).includes('integration@example.com'), false);
   await named.context.close();
+
+  const readyState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null, finalizeCalls: 0, prepareReady: true };
+  const ready = await openIndex(browser, readyState);
+  await ready.page.locator('#reporterName').fill('integration-test');
+  await ready.page.locator('#reporterPhone').fill('0900000000');
+  await ready.page.locator('#reporterEmail').fill('integration@example.com');
+  await ready.page.locator('#reporterAddress').fill('雲林縣斗六市科福一街156號');
+  await ready.page.locator('#officialSubmissionConfirmed').check();
+  await ready.page.locator('#submitButton').click();
+  await ready.page.waitForFunction(() => !document.querySelector('#officialCaptchaPanel')?.hidden);
+  assert.equal(await ready.page.locator('#officialCaptchaImageWrap').isVisible(), false, 'empty CAPTCHA image must stay hidden before the official page exposes it');
+  assert.equal(await ready.page.locator('#officialCaptchaField').isVisible(), false, 'CAPTCHA input must stay hidden before the official page exposes it');
+  assert.equal(await ready.page.locator('#officialCaptchaSubmit').innerText(), '確認送出環境部陳情');
+  await ready.page.locator('#officialCaptchaSubmit').click();
+  await ready.page.waitForFunction(() => document.querySelector('#officialCaptchaStatus')?.textContent?.includes('尚可嘗試 3 次'));
+  assert.equal(await ready.page.locator('#officialCaptchaImageWrap').isVisible(), true, 'CAPTCHA image should appear when the official page reaches verification');
+  assert.equal(await ready.page.locator('#officialCaptchaField').isVisible(), true, 'CAPTCHA input should appear when the official page reaches verification');
+  await ready.context.close();
 
   const platformOnlyState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null };
   const platformOnly = await openIndex(browser, platformOnlyState);

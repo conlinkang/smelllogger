@@ -539,6 +539,12 @@ async function createOfficialBrowserSession(packet) {
       stage = 'reporter-join-inspection';
       await clickFirst(page, ['label[for="RBL_Worker2"]', '#RBL_Worker2', 'input[value*="否"]']);
     }
+    if (!await pageHasCaptcha(page) && await count(page, '#Btn_Step3_next') > 0) {
+      stage = 'reporter-next-to-captcha';
+      await clickFirst(page, ['#Btn_Step3_next'], true);
+      await page.waitForLoadState('domcontentloaded').catch(() => {});
+      await page.waitForTimeout(700);
+    }
     stage = 'captcha-check';
     return {
       browser,
@@ -564,7 +570,6 @@ async function closeOfficialBrowserSession(session) {
 
 async function clickOfficialFinalSubmit(page) {
   await clickFirst(page, [
-    '#Btn_Step3_next',
     '#Btn_Submit',
     'input[value="確認送出"]',
     'button:has-text("確認送出")',
@@ -765,7 +770,8 @@ app.post('/finalize', async (req, res) => {
   try {
     const result = await finalizeOfficialBrowserSession(session, validation.captchaText);
     if (result.status === 'captcha_required') {
-      session.captchaAttempts += 1;
+      session.captchaRequired = true;
+      if (validation.captchaText) session.captchaAttempts += 1;
       if (session.captchaAttempts >= MAX_CAPTCHA_ATTEMPTS) {
         await deleteCaptchaSession(session.sessionId);
         return res.status(410).json({
