@@ -233,8 +233,8 @@
       <label class="report-field" for="reportDescription">通報說明<textarea id="reportDescription" maxlength="1000"></textarea></label>
       <button class="generate-description" type="button" id="generateDescription">重新產生說明文字</button>
       <div class="report-actions"><button type="button" id="copyReportDescription">複製通報說明</button><button type="button" id="copyReportPacket">複製完整通報資料</button><a href="https://ww3.moenv.gov.tw/Public/Case_Add.aspx" target="_blank" rel="noopener">前往環境部公害陳情系統</a></div>
-       <details class="report-details" open><summary>正式通報前確認</summary><p class="report-hint">若已啟用官方填單服務，這個確認會允許把具名資料送入一次性填單流程；系統預設仍停在確認頁，正式送出前需要再次檢查。</p><label class="consent-field"><input id="officialSubmissionConfirmed" type="checkbox"> 我已確認發生時間、GPS／附近地址、快速分類與通報說明，並同意依官方流程處理本次具名陳情。</label></details>
-      <details class="report-details"><summary>環境部第二階段資料（系統預填）</summary><p class="report-hint">這些欄位對應官方表單後續頁面；不知道污染者時保留「不明」，不要求使用者猜測。</p><div class="report-grid"><label class="report-field" for="pollutantName">污染者名稱<input id="pollutantName" type="text" value="不明" autocomplete="organization"></label><label class="report-field" for="pollutantPhone">污染者電話（知道才填）<input id="pollutantPhone" type="tel"></label><label class="report-field" for="pollutantResponsible">污染者負責人（知道才填）<input id="pollutantResponsible" type="text"></label><label class="report-field" for="inspectionTime">指定到場稽查時間<select id="inspectionTime"><option value="no" selected>否</option><option value="yes">是（於說明文字補充時間）</option></select></label><label class="report-field" for="replyMethod">處理結果回覆方式<select id="replyMethod"><option value="email" selected>Email回覆</option><option value="phone">電話回覆</option><option value="written">書面回覆</option></select></label><label class="report-field" for="joinInspection">是否願意會同稽查<select id="joinInspection"><option value="no" selected>否</option><option value="yes">是</option></select></label></div></details>
+       <details class="report-details" open><summary>環境部填單前確認</summary><p class="report-hint">若已啟用環境部填單服務，這個確認會允許把具名資料送入一次性填單流程；正式送出前仍需要再次檢查。</p><label class="consent-field"><input id="officialSubmissionConfirmed" type="checkbox"> 我已確認發生時間、GPS／附近地址、快速分類與通報說明，並同意依環境部流程處理本次具名陳情。</label></details>
+      <details class="report-details"><summary>環境部第二階段資料（系統預填）</summary><p class="report-hint">這些欄位對應環境部表單後續頁面；不知道污染者時保留「不明」，不要求使用者猜測。</p><div class="report-grid"><label class="report-field" for="pollutantName">污染者名稱<input id="pollutantName" type="text" value="不明" autocomplete="organization"></label><label class="report-field" for="pollutantPhone">污染者電話（知道才填）<input id="pollutantPhone" type="tel"></label><label class="report-field" for="pollutantResponsible">污染者負責人（知道才填）<input id="pollutantResponsible" type="text"></label><label class="report-field" for="inspectionTime">指定到場稽查時間<select id="inspectionTime"><option value="no" selected>否</option><option value="yes">是（於說明文字補充時間）</option></select></label><label class="report-field" for="replyMethod">處理結果回覆方式<select id="replyMethod"><option value="email" selected>Email回覆</option><option value="phone">電話回覆</option><option value="written">書面回覆</option></select></label><label class="report-field" for="joinInspection">是否願意會同稽查<select id="joinInspection"><option value="no" selected>否</option><option value="yes">是</option></select></label></div></details>
        <details class="report-details" open><summary>填單人資料（選填；具名陳情時使用）</summary><p class="reporter-storage-note">平台紀錄不需要個資。若要具名陳情，可在此填寫；勾選後只會記住在本機瀏覽器，平台與 Google Sheet 不會保存。</p><div class="report-grid"><label class="report-field" for="reporterName">姓名<input id="reporterName" type="text" autocomplete="name"></label><label class="report-field" for="reporterPhone">電話<input id="reporterPhone" type="tel" autocomplete="tel"></label><label class="report-field" for="reporterEmail">電子信箱<input id="reporterEmail" type="email" autocomplete="email"></label><label class="report-field" for="reporterAddress">聯絡地址<input id="reporterAddress" type="text" autocomplete="street-address" placeholder="例如：雲林縣斗六市○○路1號"><small class="reporter-storage-note">需包含縣市與鄉鎮市區，例如：雲林縣斗六市。</small></label></div><label class="consent-field"><input id="reporterConsent" type="checkbox"> 記住於本機，下次開啟網頁時自動帶入（不會上傳到平台）。</label><div class="report-actions"><button type="button" id="clearReporterProfile">清除本機填單資料</button><span id="reporterProfileStatus" role="status"></span></div></details>
     </section>
     <section class="submit-checklist" aria-label="送出前檢查">
@@ -242,24 +242,24 @@
       <div class="checklist-items">
         <span id="checkLocation" class="checklist-item">○ 定位</span>
         <span id="checkReporter" class="checklist-item">○ 填單人資料</span>
-        <span id="checkConsent" class="checklist-item">○ 官方確認</span>
+        <span id="checkConsent" class="checklist-item">○ 環境部確認</span>
       </div>
-      <p class="checklist-hint">未填個資可只保存平台紀錄；填妥四項個資並勾選官方確認，按一次送出即可啟動平台紀錄與官方填單。</p>
+      <p class="checklist-hint">未填個資可只保存平台紀錄；填妥四項個資並勾選環境部確認，按一次送出即可啟動平台紀錄與環境部填單。</p>
     </section>
-    <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton">送出平台紀錄＋官方填單</button><p id="message" role="status" aria-live="polite"></p></div>
+    <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton">送出平台紀錄＋環境部填單</button><p id="message" role="status" aria-live="polite"></p></div>
     <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
       <h4 id="official-review-title">下一步：人工檢查並完成最後送出</h4>
-      <p>雲端服務已完成官方表單的資料準備，現在需要你在環境部網站檢查內容並按下官方表單的最後「送出」。</p>
+      <p>雲端服務已完成環境部表單的資料準備，現在需要你在環境部網站檢查內容並按下環境部表單的最後「送出」。</p>
       <ol>
         <li>按「開啟環境部公害陳情表單」。</li>
-        <li>按「複製完整通報資料」，依資料貼入官方表單並檢查。</li>
-        <li>在環境部表單最後確認後，按官方的「送出」按鈕。</li>
+        <li>按「複製完整通報資料」，依資料貼入環境部表單並檢查。</li>
+        <li>在環境部表單最後確認後，按環境部的「送出」按鈕。</li>
       </ol>
       <div class="official-review-actions">
         <a id="officialReviewLink" class="primary" href="https://ww3.moenv.gov.tw/Public/Case_Add.aspx" target="_blank" rel="noopener">開啟環境部公害陳情表單</a>
         <button type="button" id="officialReviewCopy">複製完整通報資料</button>
       </div>
-      <p class="official-review-note">目前雲端虛擬瀏覽器與你的 Chrome 是不同工作階段，因此官方表單不會自動帶入；此區提供人工確認與快速複製資料。</p>
+      <p class="official-review-note">目前雲端虛擬瀏覽器與你的 Chrome 是不同工作階段，因此環境部表單不會自動帶入；此區提供人工確認與快速複製資料。</p>
     </section>
     <section id="officialSimulationPanel" class="official-simulation" hidden aria-labelledby="official-simulation-title">
       <span class="simulation-banner">測試模擬畫面｜不會送出真實案件</span>
@@ -358,7 +358,7 @@
       const consent = Boolean(document.getElementById('officialSubmissionConfirmed')?.checked);
       setItem('checkLocation', Boolean(currentPosition), '定位完成', '先完成定位');
       setItem('checkReporter', reporterComplete, '個資完整', '填寫四項個資');
-      setItem('checkConsent', consent, '官方已確認', '勾選官方確認');
+      setItem('checkConsent', consent, '環境部已確認', '勾選環境部確認');
     }
 
     function setOfficialReviewPanelVisible(visible, pageUrl) {
@@ -569,10 +569,10 @@
           try {
             const officialResult = await submitOfficialComplaint(getOfficialSubmissionPacket());
             officialText = officialResult.status === 'submitted'
-              ? '官方陳情已完成送出。'
+              ? '環境部陳情已完成送出。'
               : officialResult.status === 'manual_required'
-                ? '已填到官方確認階段，請使用下方人工確認區完成最後送出。'
-                : '官方填單服務尚未完成，請至環境部系統確認提交。';
+                ? '已填到環境部確認階段，請使用下方人工確認區完成最後送出。'
+                : '環境部填單服務尚未完成，請至環境部系統確認提交。';
             if (officialResult.status === 'manual_required') {
               if (config.officialSubmissionMode === 'prepare') {
                 setOfficialReviewPanelVisible(false);
@@ -581,17 +581,17 @@
               } else {
                 setOfficialSimulationVisible(false);
                 setOfficialReviewPanelVisible(true);
-                officialText = '官方填單已停在人工確認階段，請使用下方入口檢查並完成最後送出。';
+                officialText = '環境部填單已停在人工確認階段，請使用下方入口檢查並完成最後送出。';
               }
             }
           } catch (officialError) {
-            console.warn('官方填單服務未完成：', officialError);
+            console.warn('環境部填單服務未完成：', officialError);
             officialText = officialError.name === 'AbortError'
-              ? '官方填單服務逾時，平台紀錄仍已送出；請稍後重試或至環境部系統確認提交。'
-              : `官方填單服務未完成（${officialError.code || '網路錯誤'}），平台紀錄仍已送出；請至環境部系統確認提交。`;
+              ? '環境部填單服務逾時，平台紀錄仍已送出；請稍後重試或至環境部系統確認提交。'
+              : `環境部填單服務未完成（${officialError.code || '網路錯誤'}），平台紀錄仍已送出；請至環境部系統確認提交。`;
           }
         } else if (complaint.officialSubmissionConfirmed && !reporterComplete) {
-          officialText = '平台紀錄已送出；具名資料不完整，未啟動官方填單。請確認聯絡地址包含縣市與鄉鎮市區，例如「雲林縣斗六市○○路1號」。';
+          officialText = '平台紀錄已送出；具名資料不完整，未啟動環境部填單。請確認聯絡地址包含縣市與鄉鎮市區，例如「雲林縣斗六市○○路1號」。';
         }
         document.getElementById('message').textContent = result.confirmed
           ? `臭味紀錄已送出；${officialText}`
