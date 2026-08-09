@@ -12,6 +12,7 @@ const analysis = read('analysis.html');
 const analysisTest = read('analysis_test.html');
 const indexOld = read('index_old.html');
 const analysisOld = read('analysis_old.html');
+const versionConfig = JSON.parse(read('assets/app-version.json'));
 
 assert.equal(
   index.replace("window.location.href = 'analysis.html';", "window.location.href = 'analysis_test.html';"),
@@ -33,5 +34,13 @@ assert.match(indexOld, /window\.location\.href = 'analysis_old\.html'/);
 assert.match(analysisOld, /href="index_old\.html"/);
 assert.doesNotMatch(indexOld, /officialCaptchaPanel/);
 assert.doesNotMatch(analysisOld, /dashboard-summary/);
+
+assert.match(versionConfig.version, /^\d{4}\.\d{2}\.\d{2}\.\d+$/);
+for (const [name, page] of Object.entries({ index, indexTest, analysis, analysisTest })) {
+  assert.match(page, /Cache-Control" content="no-cache, no-store, must-revalidate"/, `${name} should discourage stale browser caches`);
+  assert.match(page, /assets\/app-version\.json/, `${name} should check the published application version`);
+  assert.match(page, /fetch\(versionUrl, \{ cache: 'no-store' \}\)/, `${name} should bypass the version-file cache`);
+  assert.match(page, /window\.location\.replace\(currentUrl\.toString\(\)\)/, `${name} should reload when a newer version is published`);
+}
 
 console.log('page-promotion: PASS');
