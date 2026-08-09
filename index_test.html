@@ -719,6 +719,7 @@
     }
 
     function selectGrid(grid, bounds) {
+      document.getElementById('locationMessage').textContent = '';
       if (selectedGrid) {
         selectedGrid.setOptions({ fillColor: '#0000FF' });
       }
