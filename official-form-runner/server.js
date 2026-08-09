@@ -10,9 +10,13 @@ const REQUIRED_COUNTY = process.env.REQUIRED_COUNTY || '雲林縣';
 const OFFICIAL_URL = 'https://ww3.moenv.gov.tw/Public/Case_Add.aspx';
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
+const MAX_ATTACHMENT_FILES = 3;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_TYPES = new Set(['image/jpeg', 'image/png']);
 const CAPTCHA_SESSION_TTL_MS = Math.max(60_000, Number(process.env.CAPTCHA_SESSION_TTL_MS || 5 * 60 * 1000));
 const MAX_CAPTCHA_SESSIONS = Math.max(1, Number(process.env.MAX_CAPTCHA_SESSIONS || 3));
 const MAX_CAPTCHA_ATTEMPTS = Math.max(1, Number(process.env.MAX_CAPTCHA_ATTEMPTS || 3));
+const DIAGNOSTIC_SCREENSHOT_ENABLED = String(process.env.DIAGNOSTIC_SCREENSHOT_ENABLED || '').trim().toLowerCase() === 'true';
 const FINAL_CONFIRMATION_TEXT = '我確認以本人資料正式陳情';
 const VOICE_MODEL = process.env.VERTEX_MODEL || 'gemini-2.5-flash';
 export function isOfficialSubmitEnabled(value = process.env.OFFICIAL_SUBMIT_ENABLED) {
@@ -97,6 +101,7 @@ function normalizePacket(body) {
   const complaint = body && body.complaint && typeof body.complaint === 'object' ? body.complaint : {};
   const officialForm = complaint.officialForm && typeof complaint.officialForm === 'object' ? complaint.officialForm : {};
   const reporter = body && body.reporter && typeof body.reporter === 'object' ? body.reporter : {};
+  const location = body && body.location && typeof body.location === 'object' ? body.location : {};
   const normalizedReporter = {
     name: text(reporter.name, 80),
     phone: text(reporter.phone, 40),
@@ -110,7 +115,18 @@ function normalizePacket(body) {
     finalSubmit: body && body.finalSubmit === true,
     confirmationText: text(body && body.confirmationText, 80),
     officialSubmissionConfirmed: body && body.officialSubmissionConfirmed === true,
+    location: {
+      lat: location.lat === '' || location.lat == null ? Number.NaN : Number(location.lat),
+      lng: location.lng === '' || location.lng == null ? Number.NaN : Number(location.lng)
+    },
     reporter: normalizedReporter,
+    attachments: Array.isArray(body?.attachments)
+      ? body.attachments.slice(0, MAX_ATTACHMENT_FILES).map((attachment, index) => ({
+        name: text(attachment?.name || `evidence-${index + 1}.jpg`, 100).replace(/[^\p{L}\p{N}._-]/gu, '_'),
+        mimeType: text(attachment?.mimeType, 40).toLowerCase(),
+        dataBase64: String(attachment?.dataBase64 || '').replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '')
+      }))
+      : [],
     complaint: {
       locationAddress: text(complaint.locationAddress, 160),
       description: text(complaint.description, 2000),
@@ -133,6 +149,9 @@ function normalizePacket(body) {
 
 function validatePacket(body) {
   const packet = normalizePacket(body);
+  if (Array.isArray(body?.attachments) && body.attachments.length > MAX_ATTACHMENT_FILES) {
+    return { ok: false, status: 400, code: 'TOO_MANY_ATTACHMENTS', message: '附件最多 3 張' };
+  }
   const requiredReporterValues = [
     packet.reporter.name,
     packet.reporter.phone,
@@ -163,6 +182,24 @@ function validatePacket(body) {
   }
   if (!packet.complaint.officialForm.pollutionTown || !packet.complaint.officialForm.pollutionAddressNote) {
     return { ok: false, status: 400, code: 'LOCATION_INCOMPLETE', message: 'County, town, and address note are required' };
+  }
+  if (!Number.isFinite(packet.location.lat) || !Number.isFinite(packet.location.lng) || Math.abs(packet.location.lat) > 90 || Math.abs(packet.location.lng) > 180) {
+    return { ok: false, status: 400, code: 'LOCATION_COORDINATES_INVALID', message: '平台定位經緯度缺漏或格式錯誤' };
+  }
+  let attachmentBytes = 0;
+  for (const attachment of packet.attachments) {
+    if (!ALLOWED_ATTACHMENT_TYPES.has(attachment.mimeType) || !/^[A-Za-z0-9+/]+={0,2}$/.test(attachment.dataBase64)) {
+      return { ok: false, status: 400, code: 'ATTACHMENT_INVALID', message: '附件只接受 JPG 或 PNG 圖片' };
+    }
+    const buffer = Buffer.from(attachment.dataBase64, 'base64');
+    const validSignature = attachment.mimeType === 'image/jpeg'
+      ? buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+      : buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    if (!validSignature) return { ok: false, status: 400, code: 'ATTACHMENT_SIGNATURE_INVALID', message: '附件內容與圖片格式不符' };
+    attachmentBytes += buffer.length;
+  }
+  if (attachmentBytes > MAX_ATTACHMENT_BYTES) {
+    return { ok: false, status: 413, code: 'ATTACHMENT_TOO_LARGE', message: '附件壓縮後總容量不可超過 5 MB' };
   }
   if (packet.mode === 'submit' && (!packet.finalSubmit || packet.confirmationText !== FINAL_CONFIRMATION_TEXT)) {
     return { ok: false, status: 400, code: 'FINAL_CONFIRMATION_REQUIRED', message: 'Final submission requires the explicit confirmation text' };
@@ -463,6 +500,58 @@ async function captureCaptchaImage(page) {
   return `data:image/png;base64,${buffer.toString('base64')}`;
 }
 
+async function setHiddenInputValue(page, selector, value, required = false) {
+  const locator = page.locator(selector).first();
+  if (await locator.count() === 0) {
+    if (required) throw runnerError('OFFICIAL_SELECTOR_CHANGED', `Cannot find official hidden field ${selector}`);
+    return false;
+  }
+  await locator.evaluate((element, nextValue) => {
+    element.value = String(nextValue);
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
+  return true;
+}
+
+async function waitForSelectLabel(page, selectors, label, timeout = 8000) {
+  for (const selector of selectors) {
+    if (await count(page, selector) === 0) continue;
+    const available = await page.waitForFunction(
+      ({ selector: target, label: expected }) => Array.from(document.querySelector(target)?.options || []).some(option => option.textContent?.trim() === expected),
+      { selector, label },
+      { timeout }
+    ).then(() => true).catch(() => false);
+    if (available) return true;
+  }
+  return false;
+}
+
+async function waitForAnySelector(page, selectors, timeout = 15000) {
+  return Promise.any(selectors.map(selector =>
+    page.locator(selector).first().waitFor({ state: 'attached', timeout }).then(() => selector)
+  )).catch(() => '');
+}
+
+export function stripAddressAdministrativePrefix(address, county, town) {
+  let value = text(address, 160);
+  for (const prefix of [text(county, 20), text(town, 40)]) {
+    if (prefix && value.startsWith(prefix)) value = value.slice(prefix.length);
+  }
+  return value.trim();
+}
+
+export function normalizeTaiwanPhone(value) {
+  const digits = text(value, 40).replace(/\D/g, '');
+  if (digits.startsWith('8869') && digits.length === 12) return `0${digits.slice(3)}`;
+  return digits;
+}
+
+async function captureDiagnosticScreenshot(page) {
+  const buffer = await page.screenshot({ type: 'png', fullPage: true });
+  return `data:image/png;base64,${buffer.toString('base64')}`;
+}
+
 async function createOfficialBrowserSession(packet) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ locale: 'zh-TW' });
@@ -470,6 +559,20 @@ async function createOfficialBrowserSession(packet) {
   page.setDefaultTimeout(10000);
   page.setDefaultNavigationTimeout(15000);
   let stage = 'open';
+  const pollutionAddressDetail = stripAddressAdministrativePrefix(
+    packet.complaint.officialForm.pollutionAddressNote,
+    packet.complaint.officialForm.pollutionCounty,
+    packet.complaint.officialForm.pollutionTown
+  );
+  const reporterAddressDetail = stripAddressAdministrativePrefix(
+    packet.reporter.address,
+    packet.reporter.county,
+    packet.reporter.town
+  );
+  const reporterPhone = normalizeTaiwanPhone(packet.reporter.phone);
+  const reporterPhoneIsMobile = /^09\d{8}$/.test(reporterPhone);
+  let evidenceDiagnosticScreenshot = '';
+  let locationDiagnosticControls = [];
   try {
     await page.goto(OFFICIAL_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     stage = 'consent';
@@ -496,6 +599,15 @@ async function createOfficialBrowserSession(packet) {
     await page.waitForTimeout(500);
 
     stage = 'pollutant-details';
+    if (DIAGNOSTIC_SCREENSHOT_ENABLED) {
+      locationDiagnosticControls = await page.locator('input').evaluateAll(inputs => inputs.map(input => ({
+        id: input.id || '',
+        name: input.getAttribute('name') || '',
+        type: input.type || '',
+        placeholder: input.getAttribute('placeholder') || '',
+        ariaLabel: input.getAttribute('aria-label') || ''
+      })));
+    }
     await fillFirst(page, ['#TBox_PollName', '#TBox_PollutantName'], packet.complaint.officialForm.pollutantName, true);
     await fillFirst(page, ['#TBox_PollTel', '#TBox_PollutantTel'], packet.complaint.officialForm.pollutantPhone);
     await fillFirst(page, ['#TBox_PollPerson', '#TBox_PollutantPerson'], packet.complaint.officialForm.pollutantResponsible);
@@ -504,13 +616,17 @@ async function createOfficialBrowserSession(packet) {
     stage = 'pollution-location-city';
     await selectFirst(page, ['#DDL_PollCity'], packet.complaint.officialForm.pollutionCounty, true);
     stage = 'pollution-location-town';
+    await waitForSelectLabel(page, ['#DDL_PollTown'], packet.complaint.officialForm.pollutionTown);
     await selectFirst(page, ['#DDL_PollTown'], packet.complaint.officialForm.pollutionTown, true);
     stage = 'pollution-location-mode';
     await clickFirst(page, ['#rb_Poll_addressMemo'], true);
     await page.waitForLoadState('domcontentloaded').catch(() => {});
     await page.waitForTimeout(350);
     stage = 'pollution-location-note';
-    await fillFirst(page, ['#Poll_address_detail'], packet.complaint.officialForm.pollutionAddressNote, true);
+    await fillFirst(page, ['#Poll_address_detail'], pollutionAddressDetail, true);
+    stage = 'pollution-location-coordinates';
+    await setHiddenInputValue(page, '#Hidden_LON', packet.location.lng, true);
+    await setHiddenInputValue(page, '#Hidden_LAT', packet.location.lat, true);
     stage = 'pollution-location-next';
     await clickFirst(page, ['#Btn_Step2_next', '#Btn_Step3_next', 'input[value*="下一步"]'], true);
     await page.waitForLoadState('domcontentloaded').catch(() => {});
@@ -522,28 +638,52 @@ async function createOfficialBrowserSession(packet) {
     stage = 'reporter-name';
     await fillFirst(page, ['#TBox_Name', 'input[name*="Name"]'], packet.reporter.name, true);
     stage = 'reporter-landline';
-    await fillFirst(page, ['#TBox_Tel', 'input[name*="Tel"]'], packet.reporter.phone);
+    if (!reporterPhoneIsMobile) await fillFirst(page, ['#TBox_Tel', 'input[name*="Tel"]'], reporterPhone);
     stage = 'reporter-mobile';
-    await fillFirst(page, ['#TBox_MBTel', 'input[name*="MBTel"]'], packet.reporter.phone);
+    if (reporterPhoneIsMobile) await fillFirst(page, ['#TBox_MBTel', 'input[name*="MBTel"]'], reporterPhone, true);
     stage = 'reporter-email';
     await fillFirst(page, ['#TBox_Mail', 'input[type="email"]', 'input[name*="Mail"]'], packet.reporter.email, true);
     stage = 'reporter-city';
     await selectFirst(page, ['#DDL_City', 'select[name*="City"]'], packet.reporter.county, true);
     stage = 'reporter-town';
+    await waitForSelectLabel(page, ['#DDL_Town', 'select[name*="Town"]'], packet.reporter.town);
     await selectFirst(page, ['#DDL_Town', 'select[name*="Town"]'], packet.reporter.town, true);
     await page.waitForLoadState('domcontentloaded').catch(() => {});
     await page.waitForTimeout(500);
     stage = 'reporter-address';
-    await fillFirst(page, ['#TBox_Address', 'input[name*="Address"]'], packet.reporter.address, true);
+    await fillFirst(page, ['#TBox_Address', 'input[name*="Address"]'], reporterAddressDetail, true);
     if (packet.complaint.officialForm.joinInspection === 'no') {
       stage = 'reporter-join-inspection';
       await clickFirst(page, ['label[for="RBL_Worker2"]', '#RBL_Worker2', 'input[value*="否"]']);
     }
-    if (!await pageHasCaptcha(page) && await count(page, '#Btn_Step3_next') > 0) {
+    if (!await pageHasCaptcha(page)) {
       stage = 'reporter-next-to-captcha';
-      await clickFirst(page, ['#Btn_Step3_next'], true);
-      await page.waitForLoadState('domcontentloaded').catch(() => {});
-      await page.waitForTimeout(700);
+      await clickFirst(page, [
+        '#Btn_Step3_next',
+        '#Btn_Step4_next',
+        'input[value="下一步"]',
+        'button:has-text("下一步")'
+      ], true);
+      await waitForAnySelector(page, [...CAPTCHA_INPUT_SELECTORS, 'input[type="file"]']);
+      await page.waitForTimeout(350);
+    }
+    if (!await pageHasCaptcha(page)) {
+      stage = 'evidence-upload';
+      if (packet.attachments.length > 0) {
+        const upload = page.locator('input[type="file"]').first();
+        if (await upload.count() === 0) throw runnerError('OFFICIAL_UPLOAD_CHANGED', 'Cannot find official evidence upload control');
+        await upload.setInputFiles(packet.attachments.map(attachment => ({
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          buffer: Buffer.from(attachment.dataBase64, 'base64')
+        })));
+        await page.waitForTimeout(700);
+        if (DIAGNOSTIC_SCREENSHOT_ENABLED) evidenceDiagnosticScreenshot = await captureDiagnosticScreenshot(page);
+      }
+      stage = 'evidence-next-to-captcha';
+      await clickFirst(page, ['input[value="確認送出"]', 'button:has-text("確認送出")'], true);
+      await waitForAnySelector(page, CAPTCHA_INPUT_SELECTORS);
+      await page.waitForTimeout(350);
     }
     stage = 'captcha-check';
     return {
@@ -551,10 +691,15 @@ async function createOfficialBrowserSession(packet) {
       context,
       page,
       captchaRequired: await pageHasCaptcha(page),
+      evidenceDiagnosticScreenshot,
+      locationDiagnosticControls,
       stage
     };
   } catch (error) {
     error.stage = stage;
+    if (DIAGNOSTIC_SCREENSHOT_ENABLED) {
+      error.diagnosticScreenshot = await captureDiagnosticScreenshot(page).catch(() => '');
+    }
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
     throw error;
@@ -581,12 +726,6 @@ async function clickOfficialFinalSubmit(page) {
 
 async function readOfficialResult(page) {
   const resultText = await page.locator('body').innerText();
-  if (/受理編號|案件編號|送出成功|陳情完成/.test(resultText)) {
-    return { status: 'submitted', pageUrl: page.url() };
-  }
-  if (/認證信|驗證信|請至.*信箱|電子郵件.*確認/.test(resultText)) {
-    return { status: 'email_verification_required', code: 'EMAIL_VERIFICATION_REQUIRED', pageUrl: page.url() };
-  }
   if (await pageHasCaptcha(page)) {
     return {
       status: 'captcha_required',
@@ -594,6 +733,12 @@ async function readOfficialResult(page) {
       pageUrl: page.url(),
       captchaImage: await captureCaptchaImage(page)
     };
+  }
+  if (/受理編號|案件編號|送出成功|陳情完成/.test(resultText)) {
+    return { status: 'submitted', pageUrl: page.url() };
+  }
+  if (/認證信|驗證信|請至.*信箱|電子郵件.*確認/.test(resultText)) {
+    return { status: 'email_verification_required', code: 'EMAIL_VERIFICATION_REQUIRED', pageUrl: page.url() };
   }
   return { status: 'manual_required', code: 'SUBMISSION_RESULT_UNCONFIRMED', pageUrl: page.url() };
 }
@@ -674,6 +819,7 @@ const healthHandler = (req, res) => {
     captchaRelayEnabled: true,
     captchaSessionTtlSeconds: Math.round(CAPTCHA_SESSION_TTL_MS / 1000),
     captchaMaxAttempts: MAX_CAPTCHA_ATTEMPTS,
+    diagnosticScreenshotEnabled: DIAGNOSTIC_SCREENSHOT_ENABLED,
     voiceConfigured: Boolean(process.env.GOOGLE_CLOUD_PROJECT)
   });
 };
@@ -722,6 +868,9 @@ app.post('/prepare', async (req, res) => {
     await cleanupExpiredCaptchaSessions();
     const session = await createOfficialBrowserSession(validation.packet);
     const captchaImage = session.captchaRequired ? await captureCaptchaImage(session.page) : '';
+    const diagnosticScreenshot = DIAGNOSTIC_SCREENSHOT_ENABLED && req.body?.diagnosticScreenshotRequested === true
+      ? await captureDiagnosticScreenshot(session.page)
+      : '';
     if (session.captchaRequired && !captchaImage) {
       await closeOfficialBrowserSession(session);
       return res.status(422).json({
@@ -731,16 +880,28 @@ app.post('/prepare', async (req, res) => {
       });
     }
     await registerCaptchaSession(session);
+    console.info(JSON.stringify({
+      event: 'official_prepare_result',
+      status: session.captchaRequired ? 'captcha_required' : 'ready_for_final_review',
+      stage: session.stage,
+      captchaRequired: session.captchaRequired,
+      captchaImageCaptured: Boolean(captchaImage),
+      diagnosticScreenshotCaptured: Boolean(diagnosticScreenshot)
+    }));
     return res.status(202).json({
       status: session.captchaRequired ? 'captcha_required' : 'ready_for_final_review',
       code: session.captchaRequired ? 'CAPTCHA_REQUIRED' : 'READY_FOR_FINAL_REVIEW',
       sessionId: session.sessionId,
       captchaImage,
+      diagnosticScreenshot,
+      evidenceDiagnosticScreenshot: req.body?.diagnosticScreenshotRequested === true ? session.evidenceDiagnosticScreenshot : '',
+      locationDiagnosticControls: req.body?.diagnosticScreenshotRequested === true ? session.locationDiagnosticControls : [],
       expiresAt: new Date(session.expiresAt).toISOString(),
       expiresInSeconds: Math.round(CAPTCHA_SESSION_TTL_MS / 1000)
     });
   } catch (error) {
     const code = error.code || 'RUNNER_FAILED';
+    console.warn(JSON.stringify({ event: 'official_prepare_error', code, stage: error.stage || 'unknown' }));
     const result = {
       status: 'manual_required',
       code,
@@ -748,6 +909,9 @@ app.post('/prepare', async (req, res) => {
       message: '環境部表單無法準備，請改用人工流程'
     };
     if (process.env.DEBUG_RUNNER === 'true') result.detail = text(error.message, 300);
+    if (DIAGNOSTIC_SCREENSHOT_ENABLED && req.body?.diagnosticScreenshotRequested === true) {
+      result.diagnosticScreenshot = error.diagnosticScreenshot || '';
+    }
     return res.status(code === 'OFFICIAL_SELECTOR_CHANGED' || code === 'OFFICIAL_OPTION_CHANGED' ? 422 : 500).json(result);
   }
 });
@@ -769,6 +933,16 @@ app.post('/finalize', async (req, res) => {
   }
   try {
     const result = await finalizeOfficialBrowserSession(session, validation.captchaText);
+    const diagnosticScreenshot = DIAGNOSTIC_SCREENSHOT_ENABLED && req.body?.diagnosticScreenshotRequested === true
+      ? await captureDiagnosticScreenshot(session.page).catch(() => '')
+      : '';
+    console.info(JSON.stringify({
+      event: 'official_finalize_result',
+      status: result.status,
+      code: result.code || '',
+      captchaProvided: Boolean(validation.captchaText),
+      captchaImageCaptured: Boolean(result.captchaImage)
+    }));
     if (result.status === 'captcha_required') {
       session.captchaRequired = true;
       if (validation.captchaText) session.captchaAttempts += 1;
@@ -782,16 +956,21 @@ app.post('/finalize', async (req, res) => {
       }
       return res.status(202).json({
         ...result,
+        diagnosticScreenshot,
         sessionId: session.sessionId,
         expiresAt: new Date(session.expiresAt).toISOString(),
         attemptsRemaining: MAX_CAPTCHA_ATTEMPTS - session.captchaAttempts
       });
     }
     await deleteCaptchaSession(session.sessionId);
-    return res.status(result.status === 'submitted' || result.status === 'email_verification_required' ? 200 : 202).json(result);
+    return res.status(result.status === 'submitted' || result.status === 'email_verification_required' ? 200 : 202).json({
+      ...result,
+      diagnosticScreenshot
+    });
   } catch (error) {
     await deleteCaptchaSession(session.sessionId);
     const code = error.code || 'RUNNER_FAILED';
+    console.warn(JSON.stringify({ event: 'official_finalize_error', code, stage: error.stage || 'final-submit' }));
     const result = {
       status: 'manual_required',
       code,

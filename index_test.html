@@ -144,6 +144,11 @@
     .captcha-actions button:disabled { cursor: not-allowed; opacity: .5; }
     #officialCaptchaStatus { color: #8a4300; font-weight: 700; }
     #officialCaptchaExpiry { color: #5d7186; font-size: .86rem; }
+    .attachment-picker { margin-top: 12px; padding: 12px; border: 1px solid #9ebbd4; border-radius: 10px; background: #f7fbff; }
+    .attachment-picker h5 { margin: 0 0 6px; color: #174d74; font-size: 1rem; }
+    .attachment-picker input[type="file"] { box-sizing: border-box; width: 100%; margin-top: 8px; padding: 9px; border: 1px solid #789ab8; border-radius: 8px; background: #fff; }
+    .attachment-list { margin: 8px 0 0; padding-left: 22px; }
+    .attachment-list:empty { display: none; }
     .official-review { margin-top: 8px; padding: 12px; border: 2px solid #d6a72c; border-radius: 10px; background: #fff9e6; color: #4c3b0b; }
     .official-review[hidden] { display: none; }
     .official-review h4 { margin: 0 0 6px; color: #6b4f00; }
@@ -289,6 +294,14 @@
       <label class="report-field" for="reportDescription">通報說明<textarea id="reportDescription" maxlength="1000"></textarea></label>
       <button class="generate-description" type="button" id="generateDescription">重新產生說明文字</button>
       <div class="report-actions"><button type="button" id="copyReportDescription">複製通報說明</button><button type="button" id="copyReportPacket">複製完整通報資料</button></div>
+      <section class="attachment-picker" aria-labelledby="attachment-title">
+        <h5 id="attachment-title">現場照片（選填）</h5>
+        <p class="report-hint">可選擇 1–3 張 JPG／PNG；只傳給本次環境部填單，不會送到平台紀錄或 Google Sheet。系統會在手機上縮圖壓縮，總容量上限 5 MB。</p>
+        <input id="officialAttachments" type="file" accept="image/jpeg,image/png" multiple>
+        <div class="report-actions"><button type="button" id="clearOfficialAttachments" hidden>清除附件</button></div>
+        <ul id="officialAttachmentList" class="attachment-list" aria-live="polite"></ul>
+        <p id="officialAttachmentStatus" class="reporter-storage-note" role="status">未選擇附件；仍可正常填單。</p>
+      </section>
        <details class="report-details" open><summary>環境部填單前確認</summary><p class="report-hint">若已啟用環境部填單服務，這個確認會允許把具名資料送入一次性填單流程；正式送出前仍需要再次檢查。</p><label class="consent-field"><input id="officialSubmissionConfirmed" type="checkbox"> 我已確認發生時間、GPS／附近地址、快速分類與通報說明，並同意依環境部流程處理本次具名陳情。</label></details>
       <details class="report-details"><summary>環境部第二階段資料（系統預填）</summary><p class="report-hint">這些欄位對應環境部表單後續頁面；不知道污染者時保留「不明」，不要求使用者猜測。</p><div class="report-grid"><label class="report-field" for="pollutantName">污染者名稱<input id="pollutantName" type="text" value="不明" autocomplete="organization"></label><label class="report-field" for="pollutantPhone">污染者電話（知道才填）<input id="pollutantPhone" type="tel"></label><label class="report-field" for="pollutantResponsible">污染者負責人（知道才填）<input id="pollutantResponsible" type="text"></label><label class="report-field" for="inspectionTime">指定到場稽查時間<select id="inspectionTime"><option value="no" selected>否</option><option value="yes">是（於說明文字補充時間）</option></select></label><label class="report-field" for="replyMethod">處理結果回覆方式<select id="replyMethod"><option value="email" selected>Email回覆</option><option value="phone">電話回覆</option><option value="written">書面回覆</option></select></label><label class="report-field" for="joinInspection">是否願意會同稽查<select id="joinInspection"><option value="no" selected>否</option><option value="yes">是</option></select></label></div></details>
        <details class="report-details" open><summary>填單人資料（選填；具名陳情時使用）</summary><p class="reporter-storage-note">平台紀錄不需要個資。若要具名陳情，可在此填寫；勾選後只會記住在本機瀏覽器，平台與 Google Sheet 不會保存。</p><div class="report-grid"><label class="report-field" for="reporterName">姓名<input id="reporterName" type="text" autocomplete="name"></label><label class="report-field" for="reporterPhone">電話<input id="reporterPhone" type="tel" autocomplete="tel"></label><label class="report-field" for="reporterEmail">電子信箱<input id="reporterEmail" type="email" autocomplete="email"></label><label class="report-field" for="reporterAddress">聯絡地址<input id="reporterAddress" type="text" autocomplete="street-address" placeholder="例如：雲林縣斗六市○○路1號"><small class="reporter-storage-note">需包含縣市與鄉鎮市區，例如：雲林縣斗六市。</small></label></div><label class="consent-field"><input id="reporterConsent" type="checkbox"> 記住於本機，下次開啟網頁時自動帶入（不會上傳到平台）。</label><div class="report-actions"><button type="button" id="clearReporterProfile">清除本機填單資料</button><span id="reporterProfileStatus" role="status"></span></div></details>
@@ -365,7 +378,7 @@
   <script src="assets/js/weather-client.js"></script>
   <script src="assets/js/submission-client.js?v=20260809-3"></script>
   <script src="assets/js/map-loader.js?v=20260809" defer></script>
-  <script src="assets/js/report-form.js?v=20260809-9" defer></script>
+  <script src="assets/js/report-form.js?v=20260809-10" defer></script>
   <script src="assets/js/voice-assistant.js?v=20260809-1" defer></script>
 
   <script>
@@ -448,9 +461,11 @@
           : 'platform-only';
       if (submitButton) {
         submitButton.dataset.submissionMode = mode;
-        submitButton.disabled = Boolean(isSubmitted || isSubmitting || !currentPosition);
+        submitButton.disabled = Boolean(isSubmitted || isSubmitting || window.officialAttachmentsProcessing || !currentPosition);
         if (!isSubmitted && !isSubmitting) {
-          submitButton.textContent = mode === 'location-required'
+          submitButton.textContent = window.officialAttachmentsProcessing
+            ? '正在處理附件…'
+            : mode === 'location-required'
             ? '請先完成定位'
             : mode === 'platform-and-environment'
               ? '送出平台紀錄＋環境部填單'
@@ -469,6 +484,7 @@
                 : '環境部填單服務尚未啟用；目前按下只會送出平台紀錄。';
       }
     }
+    window.refreshSubmissionChecklist = updateSubmissionChecklist;
 
     function setOfficialReviewPanelVisible(visible, pageUrl) {
       const panel = document.getElementById('officialReviewPanel');
@@ -555,7 +571,7 @@
     async function prepareOfficialCaptchaFlow() {
       const config = window.APP_CONFIG || {};
       if (!config.officialPrepareEndpoint) throw new Error('環境部資料準備服務尚未設定');
-      const result = await prepareOfficialComplaint(getOfficialSubmissionPacket('prepare'));
+      const result = await prepareOfficialComplaint(getOfficialSubmissionPacket('prepare', currentPosition));
       if (result.status === 'captcha_required' || result.status === 'ready_for_final_review') {
         setOfficialReviewPanelVisible(false);
         setOfficialSimulationVisible(false);
@@ -728,6 +744,7 @@
       }
       map.panTo(latLng);
       currentPosition = latLng;
+      window.smellLoggerSelectedPosition = { lat: Number(latLng.lat), lng: Number(latLng.lng) };
       updateSubmissionChecklist();
     }
 

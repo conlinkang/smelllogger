@@ -33,6 +33,7 @@ npm --prefix tools run test:browser
 - `CAPTCHA_SESSION_TTL_MS`：短效填表工作階段存活時間，預設 300000（5 分鐘，最低 1 分鐘）。
 - `MAX_CAPTCHA_SESSIONS`：單一執行個體同時保留的填表工作階段，預設 3。
 - `MAX_CAPTCHA_ATTEMPTS`：同一工作階段允許的 CAPTCHA 嘗試次數，預設 3。
+- `DIAGNOSTIC_SCREENSHOT_ENABLED`：僅限短暫人工驗收使用；預設關閉。啟用時，指定診斷請求可直接取得當次 Playwright 畫面，畫面不寫入 Cloud Storage。驗收後必須關閉。
 - `GOOGLE_CLOUD_PROJECT`：Vertex AI 與 Speech-to-Text 使用的 Google Cloud 專案 ID。
 - `GOOGLE_CLOUD_LOCATION`：Vertex AI 位置，預設 `global`。
 - `VERTEX_MODEL`：Gemini 模型，預設 `gemini-2.5-flash`。
@@ -62,6 +63,7 @@ Cloud Run 應使用專用服務帳號，並只授予 Speech-to-Text 用戶端與
 ## 安全與營運限制
 
 - CAPTCHA 必須由使用者本人辨識。輸入錯誤時可取得新圖重試；達 3 次或 5 分鐘未完成時，服務會關閉瀏覽器並清除工作階段。
+- 前端可選擇 1–3 張 JPG／PNG 現場照片，壓縮後總計最多 5 MB；附件只存在本次 HTTPS 請求與短效 Playwright 工作階段，不寫入平台紀錄或 Google Sheet。
 - 工作階段僅存於記憶體；Cloud Run 執行個體重啟或重新部署時也會失效，使用者必須重新準備表單。
 - 通過 CAPTCHA 後，環境部仍可能要求使用者到電子信箱點擊認證連結；取得案件編號後才算完成報案。
 - 正式送出只在前端明確勾選且服務端完成具名資料、地址、雲林縣與固定確認字串驗證後執行，避免未經最後確認即建立具名陳情。
