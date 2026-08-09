@@ -100,6 +100,11 @@ try {
   await page.waitForFunction(() => document.querySelector('#recordCount')?.textContent !== '--');
 
   assert.equal(await page.locator('#filterRegion').count(), 0, 'analysis must not show a region selector');
+  assert.equal(await page.locator('.controls > *').evaluateAll(elements => {
+    const levelIndex = elements.findIndex(element => element.classList.contains('level-filter'));
+    const returnIndex = elements.findIndex(element => element.querySelector?.('.return-button'));
+    return returnIndex === levelIndex + 1;
+  }), true, 'return button should appear immediately after the smell level filter');
   assert.equal(await page.locator('#filterDate').inputValue(), '2026-08-04', 'daily analysis should default to latest Yunlin record date');
   assert.equal(await page.locator('#recordCount').textContent(), '1', 'latest daily record should be displayed');
 
