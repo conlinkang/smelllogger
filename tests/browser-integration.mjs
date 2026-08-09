@@ -104,7 +104,7 @@ try {
   await named.page.locator('#officialSubmissionConfirmed').check();
   await named.page.locator('#submitButton').click();
   await named.page.waitForTimeout(700);
-  assert.equal(namedState.officialPayload?.mode, 'prepare');
+  assert.equal(namedState.officialPayload?.mode, 'submit');
   assert.equal(namedState.officialPayload?.reporter?.name, 'integration-test');
   assert.equal(namedState.officialPayload?.complaint?.officialForm?.pollutionCounty, '雲林縣');
   assert.match(await named.page.locator('#message').innerText(), /測試模擬確認畫面/);

@@ -10,6 +10,11 @@ const OFFICIAL_URL = 'https://ww3.moenv.gov.tw/Public/Case_Add.aspx';
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
 const VOICE_MODEL = process.env.VERTEX_MODEL || 'gemini-2.5-flash';
+export function isOfficialSubmitEnabled(value = process.env.OFFICIAL_SUBMIT_ENABLED) {
+  return String(value || '').trim().toLowerCase() === 'true';
+}
+
+const OFFICIAL_SUBMIT_ENABLED = isOfficialSubmitEnabled();
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: MAX_BODY_BYTES }));
@@ -458,7 +463,7 @@ async function fillOfficialForm(packet) {
     if (await pageHasCaptcha(page)) {
       return { status: 'manual_required', code: 'CAPTCHA_OR_HUMAN_CHECK', pageUrl: page.url() };
     }
-    if (packet.mode === 'prepare' || !process.env.OFFICIAL_SUBMIT_ENABLED) {
+    if (packet.mode === 'prepare' || !OFFICIAL_SUBMIT_ENABLED) {
       return { status: 'manual_required', code: 'READY_FOR_FINAL_REVIEW', pageUrl: page.url() };
     }
     stage = 'final-submit';
@@ -483,7 +488,8 @@ const healthHandler = (req, res) => {
     ok: true,
     service: 'smelllogger-official-form-runner',
     county: REQUIRED_COUNTY,
-    defaultMode: 'prepare',
+    defaultMode: OFFICIAL_SUBMIT_ENABLED ? 'submit' : 'prepare',
+    officialSubmitEnabled: OFFICIAL_SUBMIT_ENABLED,
     voiceConfigured: Boolean(process.env.GOOGLE_CLOUD_PROJECT)
   });
 };

@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 process.env.NODE_ENV = 'test';
-const { normalizeVoiceAnalysis, normalizeAcousticFeatures, validatePacket } = await import('../official-form-runner/server.js');
+const { normalizeVoiceAnalysis, normalizeAcousticFeatures, validatePacket, isOfficialSubmitEnabled } = await import('../official-form-runner/server.js');
+
+assert.equal(isOfficialSubmitEnabled('false'), false);
+assert.equal(isOfficialSubmitEnabled('FALSE'), false);
+assert.equal(isOfficialSubmitEnabled('true'), true);
+assert.equal(isOfficialSubmitEnabled('  true '), true);
 
 const packet = {
   mode: 'prepare',

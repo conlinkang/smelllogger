@@ -11,7 +11,7 @@
 5. 填寫污染地點：縣市、鄉鎮市區，以及地址、地段或地址備註其中一種。
 6. 選擇回覆方式（必選）、是否願意會同稽查，並填寫具名通報人的姓名、Email，以及市話或行動電話至少一項。
 
-本系統已將上述資料拆成快速選項、GPS 地址、天氣、自動說明、官方第二階段預填欄位與本機通報人資料。官方正式表單仍由使用者確認責任與按下最終送出。
+本系統已將上述資料拆成快速選項、GPS 地址、天氣、自動說明、官方第二階段預填欄位與本機通報人資料。現在由使用者在平台勾選具名陳情確認後，Cloud Run 才會執行官方表單最後送出；遇到 CAPTCHA 或流程異常則回到人工處理。
 
 ## 目前已完成
 
@@ -20,9 +20,9 @@
 - 通報人資料只存於使用者瀏覽器的 localStorage；Apps Script 與 Google Sheet 永不保存。
 - 已將「畜牧或堆肥異味」作為預設快速選項，並支援規則式選項與自動產生說明文字。
 - 說明文字會附註：`本通報由 https://conlinkang.github.io/smelllogger/index.html 輔助填單。`
-- `official-form-runner/` 已用真實官方表單，以假資料完成第一至第三階段的本機 Playwright prepare 端到端測試；測試回傳 `202 READY_FOR_FINAL_REVIEW`，未送出案件。
+- `official-form-runner/` 已用真實官方表單，以假資料完成第一至第三階段的本機 Playwright prepare 端到端測試；測試回傳 `202 READY_FOR_FINAL_REVIEW`，未送出案件。正式送出不使用假資料測試。
 - 已加入可選語音流程：Google Cloud Speech-to-Text 轉寫，Vertex AI Gemini 只回傳既有選項的候選分類；前端規則式說明文字仍是最後來源。
-- Cloud Run 已部署並完成驗證；目前 revision 為 `smelllogger-runner-00006-hfk`，服務網址為 `https://smelllogger-runner-442879625893.asia-east1.run.app`，公開健康檢查使用 `/health`。`/healthz` 在 Cloud Run 公開 URL 會被 Google Frontend 保留，因此不作為外部檢查路徑。
+- Cloud Run 已部署並完成驗證；目前 revision 為 `smelllogger-runner-00007-dfq`，服務網址為 `https://smelllogger-runner-442879625893.asia-east1.run.app`，公開健康檢查使用 `/health`。目前 `/health` 回傳 `officialSubmitEnabled:true` 與 `defaultMode:submit`。`/healthz` 在 Cloud Run 公開 URL 會被 Google Frontend 保留，因此不作為外部檢查路徑。
 
 ## Cloud Run 自動填單流程
 
@@ -32,16 +32,16 @@
 2. 通報資料以 HTTPS 傳給 Cloud Run；後端不保存 request body、不保存瀏覽器 session，請求結束即關閉 Playwright context。
 3. Playwright 開啟官方表單，完成同意頁、異味分類、描述、污染地點與具名資料欄位。
 4. CAPTCHA、欄位異動、驗證失敗或網站要求人工操作時，回傳 `manual_required` 並提供官方網址。
-5. 第一版固定停在 `prepare`：回傳「已填至最後確認前」，由使用者在官方頁面確認責任後送出。
+5. 請求為 `submit` 且通過固定確認字串、具名資料與地址驗證時，才會按下官方表單最後送出；CAPTCHA、結果無法確認或任何流程異常都回傳 `manual_required`。
 
 目前服務部署設定應維持：
 
 ```text
-OFFICIAL_SUBMIT_ENABLED=false
-officialSubmissionMode=prepare
+OFFICIAL_SUBMIT_ENABLED=true
+officialSubmissionMode=submit
 ```
 
-只有未來完成人工確認、風險評估、正式同意流程與服務監控後，才考慮開啟正式送出；即使開啟，也必須同時滿足前端 `officialSubmissionMode=submit`、服務端 `OFFICIAL_SUBMIT_ENABLED=true`、`finalSubmit=true` 與固定確認字串，不能由前端單獨決定。未取得正式開啟指示前，公開服務維持 `prepare`。
+目前已依使用者指示開啟正式送出，但仍必須同時滿足前端 `officialSubmissionMode=submit`、服務端精確判斷 `OFFICIAL_SUBMIT_ENABLED=true`、`finalSubmit=true`、固定確認字串、雲林縣限制、完整具名資料與地址解析；前端單獨改設定不能繞過服務端防護。
 
 ## 語音快速通報流程
 
@@ -58,7 +58,7 @@ officialSubmissionMode=prepare
 - CAPTCHA、反自動化規則、網站服務條款或人工確認要求，可能讓 Cloud Run 無法完成最後送出。
 - Cloud Run、Cloud Build、Artifact Registry、Vertex AI 與 Speech-to-Text 可能依使用量計費；應設定預算通知、速率限制與日誌保留政策。
 - 具名陳情涉及真實個人資料與法律責任；在沒有人工確認與明確同意前，不應由後端無人值守提交。
-- 公開 GitHub Pages 無法安全保存 `RUNNER_TOKEN`，初版依靠精確 CORS、速率限制、無 body log 與 prepare-only。若要提高防濫用能力，後續加入受保護 broker、App Check、登入或短效簽章。
+- 公開 GitHub Pages 無法安全保存 `RUNNER_TOKEN`，目前依靠精確 CORS、速率限制、無 body log、明確勾選與服務端固定確認條件。若要提高防濫用能力，後續加入受保護 broker、App Check、登入或短效簽章。
 
 ## 官方入口
 
