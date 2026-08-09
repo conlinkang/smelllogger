@@ -151,6 +151,29 @@ try {
   assert.equal(await page.locator('#recordCount').textContent(), '2', 'level 1 filter should restore all monthly records');
   assert.equal(await page.locator('#minSmellLevelHint').innerText(), '選 1 = 顯示 1～5 級紀錄');
 
+  const mobileLayout = await page.evaluate(() => {
+    const controls = document.querySelector('.controls').getBoundingClientRect();
+    const level = document.querySelector('.level-filter').getBoundingClientRect();
+    const returnLink = document.querySelector('.controls > a').getBoundingClientRect();
+    const legend = document.querySelector('#legend').getBoundingClientRect();
+    return {
+      levelMatchesControls: Math.abs(level.width - controls.width + 20) <= 2,
+      returnMatchesControls: Math.abs(returnLink.width - controls.width + 20) <= 2,
+      legendMatchesControls: Math.abs(legend.width - controls.width) <= 2
+    };
+  });
+  assert.equal(mobileLayout.levelMatchesControls, true, 'mobile smell level filter should span the control card width');
+  assert.equal(mobileLayout.returnMatchesControls, true, 'mobile return button should span the control card width');
+  assert.equal(mobileLayout.legendMatchesControls, true, 'mobile legend should match the surrounding card width');
+  if (proofDir) {
+    await page.evaluate(() => {
+      document.activeElement?.blur();
+      window.jQuery?.('#ui-datepicker-div').hide();
+    });
+    await page.locator('.controls').screenshot({ path: path.join(proofDir, 'analysis-mobile-controls.png') });
+    await page.locator('#legend').screenshot({ path: path.join(proofDir, 'analysis-mobile-legend.png') });
+  }
+
   const timeSlider = page.locator('#timeSlider');
   assert.equal(await timeSlider.count(), 1, 'compact time slider should be rendered');
   await timeSlider.evaluate((element) => {
@@ -160,6 +183,33 @@ try {
   assert.equal(await page.locator('#timeSelectionCount').innerText(), '第 1 / 2 筆', 'selected time should show its position in the filtered records');
   assert.match(await page.locator('#timeDisplay').innerText(), /臭味程度/);
   assert.ok(await page.evaluate(() => window.__yellowCircleCount > 0), 'selected report should create a yellow map highlight');
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => {
+    document.activeElement?.blur();
+    window.jQuery?.('#filterDate').datepicker('hide');
+    window.jQuery?.('#ui-datepicker-div').hide();
+  });
+  const desktopLayout = await page.evaluate(() => {
+    const labels = Array.from(document.querySelectorAll('.controls > label')).map(element => element.getBoundingClientRect());
+    const controls = document.querySelector('.controls').getBoundingClientRect();
+    const legend = document.querySelector('#legend').getBoundingClientRect();
+    const trend = document.querySelector('#trendChart').getBoundingClientRect();
+    return {
+      labelTopSpread: Math.max(...labels.map(rect => rect.top)) - Math.min(...labels.map(rect => rect.top)),
+      labelsRemainInOneRow: labels.every(rect => rect.bottom <= controls.bottom),
+      legendTrendWidthDifference: Math.abs(legend.width - trend.width),
+      legendControlWidthDifference: Math.abs(legend.width - controls.width)
+    };
+  });
+  assert.ok(desktopLayout.labelTopSpread <= 1, 'desktop analysis labels should align on one horizontal top line');
+  assert.equal(desktopLayout.labelsRemainInOneRow, true, 'desktop analysis controls should remain inside one row');
+  assert.ok(desktopLayout.legendTrendWidthDifference <= 2, 'desktop legend should match the trend card width');
+  assert.ok(desktopLayout.legendControlWidthDifference <= 2, 'desktop legend should match the controls width');
+  if (proofDir) {
+    await page.locator('.controls').screenshot({ path: path.join(proofDir, 'analysis-desktop-controls.png') });
+    await page.locator('#legend').screenshot({ path: path.join(proofDir, 'analysis-desktop-legend.png') });
+  }
 
   console.log('analysis-date-regression: PASS');
 } finally {
