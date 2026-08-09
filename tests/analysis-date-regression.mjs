@@ -195,17 +195,23 @@ try {
     const controls = document.querySelector('.controls').getBoundingClientRect();
     const legend = document.querySelector('#legend').getBoundingClientRect();
     const trend = document.querySelector('#trendChart').getBoundingClientRect();
+    const firstSelect = document.querySelector('#analysisType').getBoundingClientRect();
+    const returnButton = document.querySelector('.return-button').getBoundingClientRect();
     return {
       labelTopSpread: Math.max(...labels.map(rect => rect.top)) - Math.min(...labels.map(rect => rect.top)),
       labelsRemainInOneRow: labels.every(rect => rect.bottom <= controls.bottom),
       legendTrendWidthDifference: Math.abs(legend.width - trend.width),
-      legendControlWidthDifference: Math.abs(legend.width - controls.width)
+      legendControlWidthDifference: Math.abs(legend.width - controls.width),
+      returnTopDifference: Math.abs(returnButton.top - firstSelect.top),
+      returnHeightDifference: Math.abs(returnButton.height - firstSelect.height)
     };
   });
   assert.ok(desktopLayout.labelTopSpread <= 1, 'desktop analysis labels should align on one horizontal top line');
   assert.equal(desktopLayout.labelsRemainInOneRow, true, 'desktop analysis controls should remain inside one row');
   assert.ok(desktopLayout.legendTrendWidthDifference <= 2, 'desktop legend should match the trend card width');
   assert.ok(desktopLayout.legendControlWidthDifference <= 2, 'desktop legend should match the controls width');
+  assert.ok(desktopLayout.returnTopDifference <= 1, 'desktop return button should align horizontally with the filter controls');
+  assert.ok(desktopLayout.returnHeightDifference <= 1, 'desktop return button should match the filter control height');
   if (proofDir) {
     await page.locator('.controls').screenshot({ path: path.join(proofDir, 'analysis-desktop-controls.png') });
     await page.locator('#legend').screenshot({ path: path.join(proofDir, 'analysis-desktop-legend.png') });
