@@ -105,6 +105,21 @@
     .official-review-actions a, .official-review-actions button { min-height: 44px; padding: 9px 12px; border: 1px solid #856404; border-radius: 7px; background: #fff; color: #5b4300; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
     .official-review-actions a.primary { background: #1769aa; border-color: #1769aa; color: #fff; }
     .official-review-note { color: #665a36; font-size: .86rem; }
+    .official-simulation { margin-top: 10px; padding: 14px; border: 2px solid #5278a8; border-radius: 10px; background: #f5f9ff; }
+    .official-simulation[hidden] { display: none; }
+    .simulation-banner { display: inline-block; margin-bottom: 8px; padding: 4px 8px; border-radius: 5px; background: #e7eef8; color: #24527d; font-size: .82rem; font-weight: 700; }
+    .official-simulation h4 { margin: 0 0 6px; color: #18324b; }
+    .official-simulation p { margin: 5px 0; }
+    .simulation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+    .simulation-field { min-width: 0; padding: 8px; border: 1px solid #c5d4e6; border-radius: 7px; background: #fff; }
+    .simulation-field.wide { grid-column: 1 / -1; }
+    .simulation-field span { display: block; color: #526173; font-size: .8rem; }
+    .simulation-field strong, .simulation-field p { display: block; margin-top: 3px; overflow-wrap: anywhere; }
+    .simulation-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .simulation-actions button { min-height: 44px; padding: 9px 12px; border: 1px solid #5278a8; border-radius: 7px; background: #fff; color: #24527d; font: inherit; font-weight: 700; cursor: pointer; }
+    .simulation-actions button.primary { background: #1769aa; color: #fff; }
+    .simulation-actions button:disabled { cursor: not-allowed; opacity: .45; }
+    #simulationStatus { color: #23633f; font-weight: 700; }
     @media (max-width: 600px) {
       body { padding: 12px 10px calc(86px + env(safe-area-inset-bottom)); }
       h3 { margin-bottom: 8px; font-size: 1.35rem; }
@@ -129,6 +144,10 @@
       .report-actions a, .report-actions button, .generate-description { width: 100%; min-height: 42px; box-sizing: border-box; }
       .official-review-actions { display: grid; grid-template-columns: 1fr; }
       .official-review-actions a, .official-review-actions button { width: 100%; box-sizing: border-box; text-align: center; }
+      .simulation-grid { grid-template-columns: 1fr; }
+      .simulation-field.wide { grid-column: auto; }
+      .simulation-actions { display: grid; grid-template-columns: 1fr; }
+      .simulation-actions button { width: 100%; }
       .submit-bar { margin-left: -2px; margin-right: -2px; }
       .submit-bar #submitButton { flex-basis: 100%; }
       footer { padding-bottom: 8px; font-size: .88rem; }
@@ -242,6 +261,27 @@
       </div>
       <p class="official-review-note">目前雲端虛擬瀏覽器與你的 Chrome 是不同工作階段，因此官方表單不會自動帶入；此區提供人工確認與快速複製資料。</p>
     </section>
+    <section id="officialSimulationPanel" class="official-simulation" hidden aria-labelledby="official-simulation-title">
+      <span class="simulation-banner">測試模擬畫面｜不會送出真實案件</span>
+      <h4 id="official-simulation-title">環境部公害污染陳情－送出前確認</h4>
+      <p>雲端服務已完成資料準備。請檢查以下模擬畫面，確認後可測試按鈕狀態與完成畫面。</p>
+      <div class="simulation-grid">
+        <div class="simulation-field"><span>陳情類別</span><strong>異味污染物</strong></div>
+        <div class="simulation-field"><span>發生時間</span><strong id="simulationTime">--</strong></div>
+        <div class="simulation-field"><span>污染地點</span><strong id="simulationLocation">--</strong></div>
+        <div class="simulation-field"><span>污染者名稱</span><strong id="simulationPollutant">--</strong></div>
+        <div class="simulation-field"><span>填單人姓名</span><strong id="simulationReporterName">--</strong></div>
+        <div class="simulation-field"><span>回覆方式</span><strong id="simulationReplyMethod">--</strong></div>
+        <div class="simulation-field wide"><span>聯絡資料</span><strong id="simulationReporterContact">--</strong></div>
+        <div class="simulation-field wide"><span>通報說明</span><p id="simulationDescription">--</p></div>
+      </div>
+      <label class="consent-field"><input id="simulationCheck" type="checkbox"> 我已檢查模擬畫面中的資料（測試用，不會送出真實案件）。</label>
+      <div class="simulation-actions">
+        <button type="button" id="simulationBack">返回修改資料</button>
+        <button type="button" id="simulationConfirm" class="primary" disabled>測試模擬：確認送出</button>
+      </div>
+      <p id="simulationStatus" role="status" aria-live="polite"></p>
+    </section>
     
     
   </form>
@@ -272,6 +312,17 @@
         });
       document.getElementById('officialReviewCopy')?.addEventListener('click', () => {
         document.getElementById('copyReportPacket')?.click();
+      });
+      document.getElementById('simulationCheck')?.addEventListener('change', (event) => {
+        document.getElementById('simulationConfirm').disabled = !event.target.checked;
+      });
+      document.getElementById('simulationBack')?.addEventListener('click', () => {
+        setOfficialSimulationVisible(false);
+        document.getElementById('reportDescription')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      document.getElementById('simulationConfirm')?.addEventListener('click', () => {
+        document.getElementById('simulationStatus').textContent = '測試模擬完成：本次沒有送出真實環境部案件。';
+        document.getElementById('simulationConfirm').disabled = true;
       });
       updateSubmissionChecklist();
       loadGoogleMaps(initMap).catch(() => {
@@ -319,6 +370,26 @@
       if (link && typeof pageUrl === 'string' && pageUrl.startsWith('https://ww3.moenv.gov.tw/Public/')) {
         link.href = pageUrl;
       }
+      requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+
+    function setOfficialSimulationVisible(visible, complaint) {
+      const panel = document.getElementById('officialSimulationPanel');
+      if (!panel) return;
+      panel.hidden = !visible;
+      if (!visible) return;
+      const officialForm = complaint?.officialForm || {};
+      const reporter = complaint?.reporter || {};
+      document.getElementById('simulationTime').textContent = document.getElementById('smellTime')?.value || '--';
+      document.getElementById('simulationLocation').textContent = complaint?.locationAddress || '--';
+      document.getElementById('simulationPollutant').textContent = officialForm.pollutantName || '不明';
+      document.getElementById('simulationReporterName').textContent = reporter.name || '--';
+      document.getElementById('simulationReporterContact').textContent = [reporter.phone, reporter.email, reporter.address].filter(Boolean).join('｜') || '--';
+      document.getElementById('simulationReplyMethod').textContent = officialForm.replyMethod === 'email' ? 'Email回覆' : officialForm.replyMethod === 'phone' ? '電話回覆' : '書面回覆';
+      document.getElementById('simulationDescription').textContent = complaint?.description || '--';
+      document.getElementById('simulationCheck').checked = false;
+      document.getElementById('simulationConfirm').disabled = true;
+      document.getElementById('simulationStatus').textContent = '';
       requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
 
@@ -503,7 +574,9 @@
                 ? '已填到官方確認階段，請使用下方人工確認區完成最後送出。'
                 : '官方填單服務尚未完成，請至環境部系統確認提交。';
             if (officialResult.status === 'manual_required') {
-              setOfficialReviewPanelVisible(true, officialResult.pageUrl);
+              setOfficialReviewPanelVisible(false);
+              setOfficialSimulationVisible(true, complaint);
+              officialText = '已進入測試模擬確認畫面（不會送出真實案件）。';
             }
           } catch (officialError) {
             console.warn('官方填單服務未完成：', officialError);
