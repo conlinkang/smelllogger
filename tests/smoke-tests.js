@@ -64,6 +64,8 @@ const platformComplaint = reportSandbox.window.getPlatformComplaintData();
 const officialPacket = reportSandbox.window.getOfficialSubmissionPacket();
 const reportPacket = reportSandbox.window.getReportPacketText();
 assert.match(description, /燃燒或塑膠焦味/);
+assert.match(description, /臭味程度4級（很重且刺鼻）/);
+assert.match(description, /我感覺喉嚨或呼吸道不適/);
 assert.match(description, /施肥或堆肥/);
 assert.match(description, /喉嚨或呼吸道不適/);
 assert.match(description, /小雨/);
