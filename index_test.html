@@ -105,6 +105,10 @@
     .official-review-actions a, .official-review-actions button { min-height: 44px; padding: 9px 12px; border: 1px solid #856404; border-radius: 7px; background: #fff; color: #5b4300; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
     .official-review-actions a.primary { background: #1769aa; border-color: #1769aa; color: #fff; }
     .official-review-note { color: #665a36; font-size: .86rem; }
+    .evidence-preview { margin-top: 10px; padding: 8px; border: 1px dashed #b8c6d8; border-radius: 8px; background: #fff; }
+    .evidence-preview[hidden] { display: none; }
+    .evidence-preview img { display: block; max-width: 100%; max-height: 240px; margin: 0 auto; border-radius: 6px; object-fit: contain; }
+    .evidence-note { margin: 5px 0 0; color: var(--muted); font-size: .82rem; }
     @media (max-width: 600px) {
       body { padding: 12px 10px calc(86px + env(safe-area-inset-bottom)); }
       h3 { margin-bottom: 8px; font-size: 1.35rem; }
@@ -153,15 +157,6 @@
       <p class="wind-direction"></p>
      </div>
   </div>
-  <section class="submit-checklist" aria-label="送出前檢查">
-    <strong>送出前快速確認</strong>
-    <div class="checklist-items">
-      <span id="checkLocation" class="checklist-item">○ 定位</span>
-      <span id="checkReporter" class="checklist-item">○ 填單人資料</span>
-      <span id="checkConsent" class="checklist-item">○ 官方確認</span>
-    </div>
-    <p class="checklist-hint">未填個資可只保存平台紀錄；填妥四項個資並勾選官方確認，按一次送出即可啟動平台紀錄與官方填單。</p>
-  </section>
   <div id="weatherInfo_suspect">
      <p class="weather-description"></p>
      <p class="temperature"></p>
@@ -225,7 +220,27 @@
       <details class="report-details"><summary>環境部第二階段資料（系統預填）</summary><p class="report-hint">這些欄位對應官方表單後續頁面；不知道污染者時保留「不明」，不要求使用者猜測。</p><div class="report-grid"><label class="report-field" for="pollutantName">污染者名稱<input id="pollutantName" type="text" value="不明" autocomplete="organization"></label><label class="report-field" for="pollutantPhone">污染者電話（知道才填）<input id="pollutantPhone" type="tel"></label><label class="report-field" for="pollutantResponsible">污染者負責人（知道才填）<input id="pollutantResponsible" type="text"></label><label class="report-field" for="inspectionTime">指定到場稽查時間<select id="inspectionTime"><option value="no" selected>否</option><option value="yes">是（於說明文字補充時間）</option></select></label><label class="report-field" for="replyMethod">處理結果回覆方式<select id="replyMethod"><option value="email" selected>Email回覆</option><option value="phone">電話回覆</option><option value="written">書面回覆</option></select></label><label class="report-field" for="joinInspection">是否願意會同稽查<select id="joinInspection"><option value="no" selected>否</option><option value="yes">是</option></select></label></div></details>
        <details class="report-details" open><summary>填單人資料（選填；具名陳情時使用）</summary><p class="reporter-storage-note">平台紀錄不需要個資。若要具名陳情，可在此填寫；勾選後只會記住在本機瀏覽器，平台與 Google Sheet 不會保存。</p><div class="report-grid"><label class="report-field" for="reporterName">姓名<input id="reporterName" type="text" autocomplete="name"></label><label class="report-field" for="reporterPhone">電話<input id="reporterPhone" type="tel" autocomplete="tel"></label><label class="report-field" for="reporterEmail">電子信箱<input id="reporterEmail" type="email" autocomplete="email"></label><label class="report-field" for="reporterAddress">聯絡地址<input id="reporterAddress" type="text" autocomplete="street-address" placeholder="例如：雲林縣斗六市○○路1號"><small class="reporter-storage-note">需包含縣市與鄉鎮市區，例如：雲林縣斗六市。</small></label></div><label class="consent-field"><input id="reporterConsent" type="checkbox"> 記住於本機，下次開啟網頁時自動帶入（不會上傳到平台）。</label><div class="report-actions"><button type="button" id="clearReporterProfile">清除本機填單資料</button><span id="reporterProfileStatus" role="status"></span></div></details>
     </section>
+    <section class="report-section evidence-section" aria-labelledby="evidence-title">
+      <h4 id="evidence-title">上傳現場圖片（選填）</h4>
+      <p class="report-hint">可選取現場照片協助後續查核；目前會先在本機預覽，原始圖片尚未上傳到平台。</p>
+      <label class="report-field" for="evidenceImage">選擇圖片
+        <input id="evidenceImage" type="file" accept="image/*">
+      </label>
+      <div id="evidencePreview" class="evidence-preview" hidden>
+        <img id="evidencePreviewImage" alt="現場圖片預覽">
+        <p id="evidenceFileName" class="evidence-note"></p>
+      </div>
+    </section>
     <div id="map"></div>
+    <section class="submit-checklist" aria-label="送出前檢查">
+      <strong>送出前快速確認</strong>
+      <div class="checklist-items">
+        <span id="checkLocation" class="checklist-item">○ 定位</span>
+        <span id="checkReporter" class="checklist-item">○ 填單人資料</span>
+        <span id="checkConsent" class="checklist-item">○ 官方確認</span>
+      </div>
+      <p class="checklist-hint">未填個資可只保存平台紀錄；填妥四項個資並勾選官方確認，按一次送出即可啟動平台紀錄與官方填單。</p>
+    </section>
     <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton">送出平台紀錄＋官方填單</button><p id="message" role="status" aria-live="polite"></p></div>
     <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
       <h4 id="official-review-title">下一步：人工檢查並完成最後送出</h4>
@@ -272,6 +287,7 @@
       document.getElementById('officialReviewCopy')?.addEventListener('click', () => {
         document.getElementById('copyReportPacket')?.click();
       });
+      document.getElementById('evidenceImage')?.addEventListener('change', previewEvidenceImage);
       updateSubmissionChecklist();
       loadGoogleMaps(initMap).catch(() => {
         document.getElementById('locationMessage').textContent = '地圖尚未啟用，請聯絡系統管理者。';
@@ -281,6 +297,26 @@
     function setDefaultTime() {
       const dateInput = document.getElementById('smellTime');
       dateInput.value = window.APP_DATE.nowInputValue();
+    }
+
+    function previewEvidenceImage(event) {
+      const file = event.target.files && event.target.files[0];
+      const preview = document.getElementById('evidencePreview');
+      const image = document.getElementById('evidencePreviewImage');
+      const fileName = document.getElementById('evidenceFileName');
+      if (!file || !file.type.startsWith('image/')) {
+        preview.hidden = true;
+        image.removeAttribute('src');
+        fileName.textContent = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        image.src = reader.result;
+        fileName.textContent = `${file.name}（${Math.round(file.size / 1024)} KB）`;
+        preview.hidden = false;
+      });
+      reader.readAsDataURL(file);
     }
 
     let map, marker, currentPosition;
