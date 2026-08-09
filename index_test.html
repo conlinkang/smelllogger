@@ -304,8 +304,8 @@
     </section>
     <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton" data-submission-mode="location-required" disabled>請先完成定位</button><p id="message" role="status" aria-live="polite"></p></div>
     <section id="officialCaptchaPanel" class="official-captcha" hidden aria-labelledby="official-captcha-title">
-      <h4 id="official-captcha-title">環境部表單已填到最後驗證</h4>
-      <p>Google Cloud 已完成表單資料填寫。請由本人辨識並輸入下方 CAPTCHA；系統不會使用 OCR 或 LLM 自動破解。</p>
+      <h4 id="official-captcha-title">環境部表單處理中</h4>
+      <p id="officialCaptchaInstructions">Google Cloud 正在準備環境部表單。</p>
       <div id="officialCaptchaImageWrap" class="captcha-image-wrap"><img id="officialCaptchaImage" alt="環境部 CAPTCHA 驗證碼"></div>
       <label id="officialCaptchaField" class="captcha-field" for="officialCaptchaInput">輸入驗證碼
         <input id="officialCaptchaInput" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="12" spellcheck="false">
@@ -523,6 +523,8 @@
       officialCaptchaSessionId = result?.sessionId || officialCaptchaSessionId;
       officialCaptchaExpiresAt = Date.parse(result?.expiresAt || '') || (Date.now() + Number(result?.expiresInSeconds || 300) * 1000);
       const hasCaptcha = result?.status === 'captcha_required';
+      const title = document.getElementById('official-captcha-title');
+      const instructions = document.getElementById('officialCaptchaInstructions');
       const imageWrap = document.getElementById('officialCaptchaImageWrap');
       const image = document.getElementById('officialCaptchaImage');
       const field = document.getElementById('officialCaptchaField');
@@ -532,13 +534,17 @@
       const status = document.getElementById('officialCaptchaStatus');
       if (imageWrap) imageWrap.hidden = !hasCaptcha;
       if (field) field.hidden = !hasCaptcha;
+      if (title) title.textContent = hasCaptcha ? '最後一步：輸入環境部驗證碼' : '下一步：取得環境部驗證碼';
+      if (instructions) instructions.textContent = hasCaptcha
+        ? 'Google Cloud 已完成表單資料填寫。請由本人辨識並輸入下方 CAPTCHA；系統不會使用 OCR 或 LLM 自動破解。'
+        : 'Google Cloud 已完成前三階段資料填寫，但環境部尚未送出。按下方按鈕只會前往驗證碼頁。';
       if (image && result?.captchaImage) image.src = result.captchaImage;
       if (input) input.value = '';
-      if (submit) submit.textContent = hasCaptcha ? '輸入驗證碼並確認送出' : '確認送出環境部陳情';
+      if (submit) submit.textContent = hasCaptcha ? '輸入驗證碼並正式送出環境部陳情' : '取得環境部驗證碼';
       if (restart) restart.hidden = true;
       if (status) status.textContent = hasCaptcha
-        ? '請辨識圖片中的驗證碼；輸入後由 Cloud Run 在同一工作階段完成送出。'
-        : '環境部表單資料已準備完成，請確認後送出。';
+        ? '尚未正式送出。輸入驗證碼並按下按鈕後，Cloud Run 才會完成環境部送出。'
+        : '此階段尚未正式送出環境部陳情。';
       clearOfficialCaptchaTimer();
       officialCaptchaTimer = window.setInterval(updateCaptchaExpiry, 1000);
       updateCaptchaExpiry();
@@ -579,18 +585,23 @@
       const status = document.getElementById('officialCaptchaStatus');
       const button = document.getElementById('officialCaptchaSubmit');
       const captchaText = input?.value.trim() || '';
+      const isCaptchaVisible = !document.getElementById('officialCaptchaField')?.hidden;
       isFinalizingOfficial = true;
       updateCaptchaSubmitButton();
-      if (button) button.textContent = '環境部送出中…';
-      if (status) status.textContent = '正在同一個 Cloud Run 瀏覽器工作階段輸入驗證碼並送出…';
+      if (button) button.textContent = isCaptchaVisible ? '環境部正式送出中…' : '正在取得環境部驗證碼…';
+      if (status) status.textContent = isCaptchaVisible
+        ? '正在同一個 Cloud Run 瀏覽器工作階段輸入驗證碼並正式送出…'
+        : '正在前往環境部驗證碼頁；此步驟尚未正式送出。';
       try {
         const result = await finalizeOfficialComplaint(officialCaptchaSessionId, captchaText);
         if (result.status === 'captcha_required') {
           setOfficialCaptchaPanelVisible(true, result);
           const remaining = Number(result.attemptsRemaining);
-          if (status) status.textContent = Number.isFinite(remaining)
-            ? `驗證碼不正確或已更新，請依新圖片重新輸入（尚可嘗試 ${remaining} 次）。`
-            : '驗證碼不正確或已更新，請依新圖片重新輸入。';
+          if (status) status.textContent = !captchaText
+            ? '已取得環境部驗證碼。請辨識圖片並輸入；下一次按鈕才會正式送出。'
+            : Number.isFinite(remaining)
+              ? `驗證碼不正確或已更新，請依新圖片重新輸入（尚可嘗試 ${remaining} 次）。`
+              : '驗證碼不正確或已更新，請依新圖片重新輸入。';
           return;
         }
         officialCaptchaSessionId = '';
@@ -832,7 +843,7 @@
               const officialResult = await prepareOfficialCaptchaFlow();
               officialText = officialResult.status === 'captcha_required'
                 ? '環境部表單已填到最後 CAPTCHA，請在下方輸入驗證碼並確認送出。'
-                : '環境部表單資料已準備完成，請在下方確認送出。';
+                : '環境部表單前三階段已準備完成，但尚未正式送出；請在下方取得驗證碼。';
             }
           } catch (officialError) {
             console.warn('環境部資料準備服務未完成：', officialError);
