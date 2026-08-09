@@ -747,6 +747,21 @@ async function clickOfficialFinalSubmit(page) {
   await page.waitForTimeout(700);
 }
 
+export function classifyOfficialResultText(resultText) {
+  const normalized = text(resultText, 20000);
+  if (/您尚未完成報案|認證信|驗證信|請至.{0,30}信箱|電子郵件.{0,30}確認/.test(normalized)) {
+    return { status: 'email_verification_required', code: 'EMAIL_VERIFICATION_REQUIRED' };
+  }
+  const caseNumberMatch = normalized.match(/(?:受理編號|案件編號)\s*[:：]\s*([A-Z0-9][A-Z0-9-]{3,})/i);
+  if (caseNumberMatch) {
+    return { status: 'submitted', caseNumber: caseNumberMatch[1] };
+  }
+  if (/送出成功|陳情完成|案件已受理|報案完成/.test(normalized)) {
+    return { status: 'submitted' };
+  }
+  return { status: 'manual_required', code: 'SUBMISSION_RESULT_UNCONFIRMED' };
+}
+
 async function readOfficialResult(page) {
   const resultText = await page.locator('body').innerText();
   if (await pageHasCaptcha(page)) {
@@ -757,13 +772,7 @@ async function readOfficialResult(page) {
       captchaImage: await captureCaptchaImage(page)
     };
   }
-  if (/受理編號|案件編號|送出成功|陳情完成/.test(resultText)) {
-    return { status: 'submitted', pageUrl: page.url() };
-  }
-  if (/認證信|驗證信|請至.*信箱|電子郵件.*確認/.test(resultText)) {
-    return { status: 'email_verification_required', code: 'EMAIL_VERIFICATION_REQUIRED', pageUrl: page.url() };
-  }
-  return { status: 'manual_required', code: 'SUBMISSION_RESULT_UNCONFIRMED', pageUrl: page.url() };
+  return { ...classifyOfficialResultText(resultText), pageUrl: page.url() };
 }
 
 async function finalizeOfficialBrowserSession(session, captchaText = '') {

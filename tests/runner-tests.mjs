@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 process.env.NODE_ENV = 'test';
-const { normalizeVoiceAnalysis, normalizeAcousticFeatures, normalizeTaiwanPhone, stripAddressAdministrativePrefix, validatePacket, validateCaptchaFinalize, isOfficialSubmitEnabled } = await import('../official-form-runner/server.js');
+const { classifyOfficialResultText, normalizeVoiceAnalysis, normalizeAcousticFeatures, normalizeTaiwanPhone, stripAddressAdministrativePrefix, validatePacket, validateCaptchaFinalize, isOfficialSubmitEnabled } = await import('../official-form-runner/server.js');
 
 assert.equal(isOfficialSubmitEnabled('false'), false);
 assert.equal(isOfficialSubmitEnabled('FALSE'), false);
@@ -57,6 +57,12 @@ assert.equal(stripAddressAdministrativePrefix('科福一街156號', '雲林縣',
 assert.equal(stripAddressAdministrativePrefix('640台灣雲林縣斗六市科工十二路9號附近', '雲林縣', '斗六市'), '科工十二路9號附近');
 assert.equal(normalizeTaiwanPhone('+886963158502'), '0963158502');
 assert.equal(normalizeTaiwanPhone('0963-158-502'), '0963158502');
+assert.deepEqual(
+  classifyOfficialResultText('您尚未完成報案，請至信箱收取認證信並由信中連結完成確認，直到取得案件編號後才算完成報案。'),
+  { status: 'email_verification_required', code: 'EMAIL_VERIFICATION_REQUIRED' }
+);
+assert.deepEqual(classifyOfficialResultText('案件編號：YL-20260809-12345'), { status: 'submitted', caseNumber: 'YL-20260809-12345' });
+assert.deepEqual(classifyOfficialResultText('請人工確認後續結果'), { status: 'manual_required', code: 'SUBMISSION_RESULT_UNCONFIRMED' });
 
 const normalized = normalizeVoiceAnalysis({
   odorLevel: 7,
