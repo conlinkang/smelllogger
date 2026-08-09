@@ -574,9 +574,15 @@
                 ? '已填到官方確認階段，請使用下方人工確認區完成最後送出。'
                 : '官方填單服務尚未完成，請至環境部系統確認提交。';
             if (officialResult.status === 'manual_required') {
-              setOfficialReviewPanelVisible(false);
-              setOfficialSimulationVisible(true, complaint);
-              officialText = '已進入測試模擬確認畫面（不會送出真實案件）。';
+              if (config.officialSubmissionMode === 'prepare') {
+                setOfficialReviewPanelVisible(false);
+                setOfficialSimulationVisible(true, complaint);
+                officialText = '已進入測試模擬確認畫面（不會送出真實案件）。';
+              } else {
+                setOfficialSimulationVisible(false);
+                setOfficialReviewPanelVisible(true);
+                officialText = '官方填單已停在人工確認階段，請使用下方入口檢查並完成最後送出。';
+              }
             }
           } catch (officialError) {
             console.warn('官方填單服務未完成：', officialError);

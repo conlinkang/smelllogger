@@ -107,12 +107,9 @@ try {
   assert.equal(namedState.officialPayload?.mode, 'submit');
   assert.equal(namedState.officialPayload?.reporter?.name, 'integration-test');
   assert.equal(namedState.officialPayload?.complaint?.officialForm?.pollutionCounty, '雲林縣');
-  assert.match(await named.page.locator('#message').innerText(), /測試模擬確認畫面/);
-  assert.equal(await named.page.locator('#officialSimulationPanel').isVisible(), true, 'official simulation panel should be visible after prepare flow');
-  await named.page.locator('#simulationCheck').check();
-  assert.equal(await named.page.locator('#simulationConfirm').isEnabled(), true, 'simulation confirmation should require an explicit check');
-  await named.page.locator('#simulationConfirm').click();
-  assert.match(await named.page.locator('#simulationStatus').innerText(), /沒有送出真實環境部案件/);
+  assert.match(await named.page.locator('#message').innerText(), /人工確認階段/);
+  assert.equal(await named.page.locator('#officialReviewPanel').isVisible(), true, 'formal submit fallback should show the manual review panel');
+  assert.equal(await named.page.locator('#officialSimulationPanel').isVisible(), false, 'formal submit fallback should not show the prepare simulation panel');
   assert.equal(await named.page.locator('#smellTime').isDisabled(), true, 'system-recorded smell time should not be editable');
   assert.equal(JSON.stringify(namedState.platformPayload).includes('0900000000'), false);
   assert.equal(JSON.stringify(namedState.platformPayload).includes('integration@example.com'), false);
