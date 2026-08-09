@@ -533,8 +533,23 @@ async function waitForAnySelector(page, selectors, timeout = 15000) {
   )).catch(() => '');
 }
 
+async function selectDependentOption(page, parentSelectors, childSelectors, parentLabel, childLabel) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await selectFirst(page, parentSelectors, parentLabel, true);
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    if (await waitForSelectLabel(page, childSelectors, childLabel, 12000)) {
+      await selectFirst(page, childSelectors, childLabel, true);
+      return;
+    }
+    await page.waitForTimeout(500);
+  }
+  throw runnerError('OFFICIAL_OPTION_CHANGED', `Cannot select dependent option: ${childLabel}`);
+}
+
 export function stripAddressAdministrativePrefix(address, county, town) {
-  let value = text(address, 160);
+  let value = text(address, 160)
+    .replace(/^\d{3,5}\s*/, '')
+    .replace(/^(?:台灣|臺灣)\s*/, '');
   for (const prefix of [text(county, 20), text(town, 40)]) {
     if (prefix && value.startsWith(prefix)) value = value.slice(prefix.length);
   }
@@ -614,10 +629,14 @@ async function createOfficialBrowserSession(packet) {
     await clickFirst(page, packet.complaint.officialForm.inspectionTime === 'yes' ? ['#rbtn_SpecifiedTime1'] : ['#rbtn_SpecifiedTime2'], true);
     await page.waitForLoadState('domcontentloaded').catch(() => {});
     stage = 'pollution-location-city';
-    await selectFirst(page, ['#DDL_PollCity'], packet.complaint.officialForm.pollutionCounty, true);
     stage = 'pollution-location-town';
-    await waitForSelectLabel(page, ['#DDL_PollTown'], packet.complaint.officialForm.pollutionTown);
-    await selectFirst(page, ['#DDL_PollTown'], packet.complaint.officialForm.pollutionTown, true);
+    await selectDependentOption(
+      page,
+      ['#DDL_PollCity'],
+      ['#DDL_PollTown'],
+      packet.complaint.officialForm.pollutionCounty,
+      packet.complaint.officialForm.pollutionTown
+    );
     stage = 'pollution-location-mode';
     await clickFirst(page, ['#rb_Poll_addressMemo'], true);
     await page.waitForLoadState('domcontentloaded').catch(() => {});
@@ -644,10 +663,14 @@ async function createOfficialBrowserSession(packet) {
     stage = 'reporter-email';
     await fillFirst(page, ['#TBox_Mail', 'input[type="email"]', 'input[name*="Mail"]'], packet.reporter.email, true);
     stage = 'reporter-city';
-    await selectFirst(page, ['#DDL_City', 'select[name*="City"]'], packet.reporter.county, true);
     stage = 'reporter-town';
-    await waitForSelectLabel(page, ['#DDL_Town', 'select[name*="Town"]'], packet.reporter.town);
-    await selectFirst(page, ['#DDL_Town', 'select[name*="Town"]'], packet.reporter.town, true);
+    await selectDependentOption(
+      page,
+      ['#DDL_City', 'select[name*="City"]'],
+      ['#DDL_Town', 'select[name*="Town"]'],
+      packet.reporter.county,
+      packet.reporter.town
+    );
     await page.waitForLoadState('domcontentloaded').catch(() => {});
     await page.waitForTimeout(500);
     stage = 'reporter-address';

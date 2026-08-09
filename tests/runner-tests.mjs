@@ -54,6 +54,7 @@ assert.equal(validateCaptchaFinalize({ ...captchaFinalize, captchaText: '9N-9PF!
 assert.equal(validateCaptchaFinalize({ ...captchaFinalize, confirmationText: '' }).code, 'FINAL_CONFIRMATION_REQUIRED');
 assert.equal(stripAddressAdministrativePrefix('雲林縣斗六市科福一街156號附近', '雲林縣', '斗六市'), '科福一街156號附近');
 assert.equal(stripAddressAdministrativePrefix('科福一街156號', '雲林縣', '斗六市'), '科福一街156號');
+assert.equal(stripAddressAdministrativePrefix('640台灣雲林縣斗六市科工十二路9號附近', '雲林縣', '斗六市'), '科工十二路9號附近');
 assert.equal(normalizeTaiwanPhone('+886963158502'), '0963158502');
 assert.equal(normalizeTaiwanPhone('0963-158-502'), '0963158502');
 
