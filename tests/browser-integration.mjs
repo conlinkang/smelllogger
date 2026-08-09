@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '../official-form-runner/node_modules/playwright/index.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const proofDir = process.env.PROOF_SCREENSHOT_DIR ? path.resolve(process.env.PROOF_SCREENSHOT_DIR) : '';
+const proofCaptchaImage = process.env.PROOF_CAPTCHA_IMAGE && fs.existsSync(process.env.PROOF_CAPTCHA_IMAGE)
+  ? `data:image/png;base64,${fs.readFileSync(process.env.PROOF_CAPTCHA_IMAGE).toString('base64')}`
+  : '';
+if (proofDir) fs.mkdirSync(proofDir, { recursive: true });
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -35,7 +40,7 @@ function mapsStub() {
     class Marker { constructor() {} setPosition() {} }
     class Rectangle { constructor() {} setOptions() {} }
     class LatLng { constructor(lat, lng) { this.lat = () => lat; this.lng = () => lng; } }
-    class Geocoder { geocode(options, callback) { callback([{ formatted_address: '雲林縣斗六市科福一街156號3樓' }], 'OK'); } }
+    class Geocoder { geocode(options, callback) { callback([{ formatted_address: '雲林縣斗六市文化路100號3樓' }], 'OK'); } }
     class OverlayView { setMap() {} getPanes() { return { overlayLayer: document.createElement('div') }; } getProjection() { return { fromLatLngToDivPixel: () => ({ x: 0, y: 0 }) }; } }
     window.google = { maps: { Map: MockMap, Marker, Rectangle, LatLng, Geocoder, OverlayView, event: { addListener() {} } } };
     window.__smellLoggerMapsReady();
@@ -82,7 +87,7 @@ async function configureRoutes(page, state) {
         status: 'captcha_required',
         code: 'CAPTCHA_REQUIRED',
         sessionId: 'integration_session_abcdefghijklmnopqrstuvwxyz123456',
-        captchaImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=',
+        captchaImage: state.captchaImage || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=',
         expiresAt: new Date(Date.now() + 300000).toISOString(),
         expiresInSeconds: 300
       })
@@ -99,7 +104,7 @@ async function configureRoutes(page, state) {
           status: 'captcha_required',
           code: 'CAPTCHA_INCORRECT',
           sessionId: 'integration_session_abcdefghijklmnopqrstuvwxyz123456',
-          captchaImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=',
+          captchaImage: state.captchaImage || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=',
           expiresAt: new Date(Date.now() + 240000).toISOString(),
           attemptsRemaining: state.prepareReady ? 3 : 2
         })
@@ -140,7 +145,7 @@ try {
   assert.equal(await noLocation.page.locator('#submitButton').innerText(), '請先完成定位');
   await noLocation.context.close();
 
-  const namedState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null, finalizeCalls: 0 };
+  const namedState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null, finalizeCalls: 0, captchaImage: proofCaptchaImage };
   const named = await openIndex(browser, namedState);
   assert.equal(await named.page.locator('#officialReviewLink').isVisible(), false, 'official form link should be hidden before a fallback is needed');
   const namedButtonBox = await named.page.locator('#submitButton').boundingBox();
@@ -153,6 +158,14 @@ try {
   await named.page.locator('#reporterPhone').fill('0900000000');
   await named.page.locator('#reporterEmail').fill('integration@example.com');
   await named.page.locator('#reporterAddress').fill('雲林縣斗六市科福一街156號');
+  await named.page.locator('#reportDescription').fill('平台通報說明端到端測試文字。');
+  await named.page.locator('#officialAttachments').setInputFiles({
+    name: 'evidence.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII=', 'base64')
+  });
+  await named.page.waitForFunction(() => document.querySelector('#officialAttachmentStatus')?.textContent?.includes('已準備 1 張'));
+  if (proofDir) await named.page.locator('.attachment-picker').screenshot({ path: path.join(proofDir, 'mobile-optional-attachment.png') });
   await named.page.locator('#officialSubmissionConfirmed').check();
   assert.equal(await named.page.locator('#submitButton').innerText(), '送出平台紀錄＋環境部填單');
   assert.equal(await named.page.locator('#submitButton').isDisabled(), false);
@@ -160,8 +173,16 @@ try {
   await named.page.waitForTimeout(700);
   assert.equal(namedState.preparePayload?.mode, 'prepare');
   assert.equal(namedState.preparePayload?.reporter?.name, 'integration-test');
+  assert.ok(Math.abs(namedState.preparePayload?.location?.lat - 23.713179) < 0.001, 'official latitude must come from the selected platform location');
+  assert.ok(Math.abs(namedState.preparePayload?.location?.lng - 120.50558) < 0.001, 'official longitude must come from the selected platform location');
+  assert.equal(namedState.preparePayload?.reporter?.address, '雲林縣斗六市科福一街156號');
+  assert.match(namedState.preparePayload?.complaint?.locationAddress || '', /文化路100號附近/);
+  assert.equal(namedState.preparePayload?.complaint?.description, '平台通報說明端到端測試文字。');
   assert.equal(namedState.preparePayload?.complaint?.officialForm?.pollutionCounty, '雲林縣');
+  assert.equal(namedState.preparePayload?.attachments?.length, 1);
+  assert.equal(namedState.preparePayload?.attachments?.[0]?.mimeType, 'image/jpeg');
   assert.equal(await named.page.locator('#officialCaptchaPanel').isVisible(), true, 'prepared form should show the CAPTCHA relay panel');
+  if (proofDir) await named.page.locator('#officialCaptchaPanel').screenshot({ path: path.join(proofDir, 'mobile-captcha-entry.png') });
   assert.equal(await named.page.locator('#officialReviewPanel').isVisible(), false, 'manual fallback should remain hidden while CAPTCHA relay is available');
   assert.equal(await named.page.locator('#officialSimulationPanel').isVisible(), false, 'formal submit fallback should not show the prepare simulation panel');
   await named.page.locator('#officialCaptchaInput').fill('WRONG');
@@ -170,6 +191,7 @@ try {
   assert.equal(namedState.finalizeCalls, 1);
   assert.match(await named.page.locator('#officialCaptchaStatus').innerText(), /尚可嘗試 2 次/);
   assert.equal(await named.page.locator('#officialCaptchaInput').inputValue(), '', 'wrong CAPTCHA should clear the input for a retry');
+  if (proofDir) await named.page.locator('#officialCaptchaPanel').screenshot({ path: path.join(proofDir, 'mobile-captcha-retry.png') });
   await named.page.locator('#officialCaptchaInput').fill('9N9PF');
   await named.page.locator('#officialCaptchaSubmit').click();
   await named.page.waitForFunction(() => document.querySelector('#officialCaptchaStatus')?.textContent?.includes('電子信箱'));
@@ -178,10 +200,12 @@ try {
   assert.equal(namedState.finalizePayload?.captchaText, '9N9PF');
   assert.equal(namedState.finalizePayload?.confirmationText, '我確認以本人資料正式陳情');
   assert.match(await named.page.locator('#message').innerText(), /信箱完成認證/);
+  if (proofDir) await named.page.locator('#officialCaptchaPanel').screenshot({ path: path.join(proofDir, 'mobile-email-verification.png') });
   assert.equal(await named.page.locator('#officialReviewPanel').isVisible(), false, 'successful relay should not expose the manual fallback');
   assert.equal(await named.page.locator('#smellTime').isDisabled(), true, 'system-recorded smell time should not be editable');
   assert.equal(JSON.stringify(namedState.platformPayload).includes('0900000000'), false);
   assert.equal(JSON.stringify(namedState.platformPayload).includes('integration@example.com'), false);
+  assert.equal(JSON.stringify(namedState.platformPayload).includes('dataBase64'), false);
   await named.context.close();
 
   const readyState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null, finalizeCalls: 0, prepareReady: true };

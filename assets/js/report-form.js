@@ -1,6 +1,11 @@
 (function () {
   const REPORTER_PROFILE_STORAGE_KEY = 'smelllogger.reporterProfile.v1';
   const FORM_ASSISTANCE_NOTE = '本通報由 https://conlinkang.github.io/smelllogger/index.html 輔助填單。';
+  const MAX_OFFICIAL_ATTACHMENTS = 3;
+  const MAX_ATTACHMENT_SOURCE_BYTES = 12 * 1024 * 1024;
+  const MAX_ATTACHMENT_TOTAL_BYTES = 5 * 1024 * 1024;
+  let officialAttachments = [];
+  window.officialAttachmentsProcessing = false;
 
   const optionLabels = {
     odorType: {
@@ -333,9 +338,10 @@
     return complaint;
   }
 
-  function getOfficialSubmissionPacket(modeOverride) {
+  function getOfficialSubmissionPacket(modeOverride, positionOverride) {
     const complaint = getComplaintData();
     const config = window.APP_CONFIG || {};
+    const selectedPosition = positionOverride || window.smellLoggerSelectedPosition || {};
     const requestedMode = modeOverride || config.officialSubmissionMode || 'prepare';
     const finalMode = requestedMode === 'submit';
     const finalConfirmed = finalMode && complaint.officialSubmissionConfirmed;
@@ -344,7 +350,16 @@
       finalSubmit: finalConfirmed,
       confirmationText: finalConfirmed ? (config.officialFinalConfirmationText || '') : '',
       officialSubmissionConfirmed: complaint.officialSubmissionConfirmed,
+      location: {
+        lat: Number(selectedPosition.lat),
+        lng: Number(selectedPosition.lng)
+      },
       reporter: complaint.reporter,
+      attachments: officialAttachments.map(attachment => ({
+        name: attachment.name,
+        mimeType: attachment.mimeType,
+        dataBase64: attachment.dataBase64
+      })),
       complaint: {
         locationAddress: complaint.locationAddress,
         description: complaint.description,
@@ -396,6 +411,93 @@
     if (description && description.dataset.userEdited !== 'true') generateDescription();
   }
 
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('附件讀取失敗'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function loadBrowserImage(url) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('圖片格式無法讀取'));
+      image.src = url;
+    });
+  }
+
+  async function compressOfficialAttachment(file, index) {
+    if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('只接受 JPG 或 PNG 圖片');
+    if (file.size > MAX_ATTACHMENT_SOURCE_BYTES) throw new Error(`第 ${index + 1} 張原始圖片超過 12 MB`);
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const image = await loadBrowserImage(objectUrl);
+      const scale = Math.min(1, 1600 / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+      canvas.height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#fff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('圖片壓縮失敗')), 'image/jpeg', 0.82));
+      const dataUrl = await blobToDataUrl(blob);
+      const stem = String(file.name || `evidence-${index + 1}`).replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}._-]/gu, '_').slice(0, 80) || `evidence-${index + 1}`;
+      return {
+        name: `${stem}.jpg`,
+        mimeType: 'image/jpeg',
+        dataBase64: dataUrl.split(',')[1] || '',
+        size: blob.size
+      };
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  function renderOfficialAttachments(message) {
+    const list = document.getElementById('officialAttachmentList');
+    const status = document.getElementById('officialAttachmentStatus');
+    const clearButton = document.getElementById('clearOfficialAttachments');
+    if (list) {
+      list.replaceChildren(...officialAttachments.map(attachment => {
+        const item = document.createElement('li');
+        item.textContent = `${attachment.name}（${Math.max(1, Math.round(attachment.size / 1024))} KB）`;
+        return item;
+      }));
+    }
+    if (clearButton) clearButton.hidden = officialAttachments.length === 0;
+    if (status) status.textContent = message || (officialAttachments.length
+      ? `已準備 ${officialAttachments.length} 張照片；只會傳給本次環境部填單。`
+      : '未選擇附件；仍可正常填單。');
+  }
+
+  async function handleOfficialAttachmentSelection(event) {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+    window.officialAttachmentsProcessing = true;
+    window.refreshSubmissionChecklist?.();
+    renderOfficialAttachments('正在縮圖與壓縮附件，請稍候…');
+    try {
+      if (files.length > MAX_OFFICIAL_ATTACHMENTS) throw new Error('最多選擇 3 張照片');
+      const attachments = [];
+      for (let index = 0; index < files.length; index += 1) attachments.push(await compressOfficialAttachment(files[index], index));
+      const totalBytes = attachments.reduce((sum, attachment) => sum + attachment.size, 0);
+      if (totalBytes > MAX_ATTACHMENT_TOTAL_BYTES) throw new Error('壓縮後附件總容量超過 5 MB，請減少照片');
+      officialAttachments = attachments;
+      renderOfficialAttachments();
+    } catch (error) {
+      officialAttachments = [];
+      event.target.value = '';
+      renderOfficialAttachments(error.message || '附件處理失敗，請重新選擇');
+    } finally {
+      window.officialAttachmentsProcessing = false;
+      window.refreshSubmissionChecklist?.();
+    }
+  }
+
   function setupReportForm() {
     const description = document.getElementById('reportDescription');
     const generateButton = document.getElementById('generateDescription');
@@ -404,8 +506,16 @@
     const packetButton = document.getElementById('copyReportPacket');
     const reporterConsent = document.getElementById('reporterConsent');
     const clearReporterButton = document.getElementById('clearReporterProfile');
+    const attachmentInput = document.getElementById('officialAttachments');
+    const clearAttachmentsButton = document.getElementById('clearOfficialAttachments');
 
     loadReporterProfile();
+    attachmentInput?.addEventListener('change', handleOfficialAttachmentSelection);
+    clearAttachmentsButton?.addEventListener('click', () => {
+      officialAttachments = [];
+      attachmentInput.value = '';
+      renderOfficialAttachments('附件已清除；仍可正常填單。');
+    });
 
     description.addEventListener('input', () => {
       description.dataset.userEdited = 'true';
@@ -489,5 +599,6 @@
   window.getPlatformComplaintData = getPlatformComplaintData;
   window.getOfficialSubmissionPacket = getOfficialSubmissionPacket;
   window.isReporterCompleteForOfficial = isReporterCompleteForOfficial;
+  window.getOfficialAttachments = () => officialAttachments.map(attachment => ({ ...attachment }));
   window.addEventListener('DOMContentLoaded', setupReportForm);
 })();
