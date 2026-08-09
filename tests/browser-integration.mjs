@@ -104,6 +104,8 @@ try {
   assert.equal(namedState.officialPayload?.reporter?.name, 'integration-test');
   assert.equal(namedState.officialPayload?.complaint?.officialForm?.pollutionCounty, '雲林縣');
   assert.match(await named.page.locator('#message').innerText(), /已填到官方確認階段/);
+  assert.equal(await named.page.locator('#officialReviewPanel').isVisible(), true, 'manual review panel should be visible after prepare flow');
+  assert.equal(await named.page.locator('#officialReviewLink').getAttribute('href'), 'https://ww3.moenv.gov.tw/Public/Case_Add.aspx');
   assert.equal(JSON.stringify(namedState.platformPayload).includes('0900000000'), false);
   assert.equal(JSON.stringify(namedState.platformPayload).includes('integration@example.com'), false);
   await named.context.close();
