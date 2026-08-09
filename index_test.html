@@ -67,6 +67,11 @@
     .analysis-button:hover {
       background-color: var(--accent-dark);
     }
+    .analysis-button:disabled {
+      background-color: #8aa1b5;
+      cursor: not-allowed;
+      opacity: .7;
+    }
     .report-section {
       margin: 18px 0;
       padding: 16px;
@@ -241,12 +246,12 @@
       <strong>送出前快速確認</strong>
       <div class="checklist-items">
         <span id="checkLocation" class="checklist-item">○ 定位</span>
-        <span id="checkReporter" class="checklist-item">○ 填單人資料</span>
+        <span id="checkReporter" class="checklist-item">○ 環境部個資未完成</span>
         <span id="checkConsent" class="checklist-item">○ 環境部確認</span>
       </div>
-      <p class="checklist-hint">未填個資可只保存平台紀錄；填妥四項個資並勾選環境部確認，按一次送出即可啟動平台紀錄與環境部填單。</p>
+      <p id="submitModeHint" class="checklist-hint">尚未完成定位，請先選擇通報位置；完成定位後才可送出平台紀錄。</p>
     </section>
-    <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton">送出平台紀錄＋環境部填單</button><p id="message" role="status" aria-live="polite"></p></div>
+    <div class="submit-bar"><button class="analysis-button" type="submit" id="submitButton" data-submission-mode="location-required" disabled>請先完成定位</button><p id="message" role="status" aria-live="polite"></p></div>
     <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
       <h4 id="official-review-title">下一步：人工檢查並完成最後送出</h4>
       <p>雲端服務已完成環境部表單的資料準備，現在需要你在環境部網站檢查內容並按下環境部表單的最後「送出」。</p>
@@ -356,9 +361,41 @@
         ? window.isReporterCompleteForOfficial(complaint)
         : false;
       const consent = Boolean(document.getElementById('officialSubmissionConfirmed')?.checked);
+      const officialEndpointReady = Boolean(window.APP_CONFIG?.officialSubmissionEndpoint);
+      const officialReady = Boolean(currentPosition && reporterComplete && consent && officialEndpointReady);
       setItem('checkLocation', Boolean(currentPosition), '定位完成', '先完成定位');
-      setItem('checkReporter', reporterComplete, '個資完整', '填寫四項個資');
+      setItem('checkReporter', reporterComplete, '環境部個資完整', '環境部個資未完成');
       setItem('checkConsent', consent, '環境部已確認', '勾選環境部確認');
+
+      const submitButton = document.getElementById('submitButton');
+      const submitModeHint = document.getElementById('submitModeHint');
+      const mode = !currentPosition
+        ? 'location-required'
+        : officialReady
+          ? 'platform-and-environment'
+          : 'platform-only';
+      if (submitButton) {
+        submitButton.dataset.submissionMode = mode;
+        submitButton.disabled = Boolean(isSubmitted || isSubmitting || !currentPosition);
+        if (!isSubmitted && !isSubmitting) {
+          submitButton.textContent = mode === 'location-required'
+            ? '請先完成定位'
+            : mode === 'platform-and-environment'
+              ? '送出平台紀錄＋環境部填單'
+              : '送出平台紀錄';
+        }
+      }
+      if (submitModeHint) {
+        submitModeHint.textContent = mode === 'location-required'
+          ? '尚未完成定位，請先選擇通報位置；完成定位後才可送出平台紀錄。'
+          : mode === 'platform-and-environment'
+            ? '已完成定位、環境部個資與確認；按下後會送出平台紀錄，並啟動環境部填單。'
+            : !reporterComplete
+              ? '環境部個資未完成；目前按下只會送出平台紀錄，不會送出環境部。若要送出環境部，請填妥四項個資。'
+              : !consent
+                ? '目前按下只會送出平台紀錄，不會送出環境部；若要送出環境部，請勾選環境部確認。'
+                : '環境部填單服務尚未啟用；目前按下只會送出平台紀錄。';
+      }
     }
 
     function setOfficialReviewPanelVisible(visible, pageUrl) {
@@ -538,10 +575,6 @@
       const smellTime = document.getElementById('smellTime').value;
       const complaint = getComplaintData();
       updateSubmissionChecklist();
-      if (hasUnconsentedReporterData(complaint)) {
-        alert('若要使用具名陳情，請將姓名、電話、電子信箱與聯絡地址填寫完整；否則請清空通報人欄位，只保存平台紀錄。');
-        return;
-      }
 
       const submitButton = document.getElementById('submitButton');
       const data = {
@@ -560,12 +593,19 @@
       try {
         const result = await submitRecord(data);
         isSubmitted = true;
-        let officialText = '請至環境部系統確認正式提交。';
         const reporterComplete = typeof window.isReporterCompleteForOfficial === 'function'
           ? window.isReporterCompleteForOfficial(complaint)
           : false;
         const config = window.APP_CONFIG || {};
-        if (complaint.officialSubmissionConfirmed && reporterComplete && config.officialSubmissionEndpoint) {
+        const officialReady = Boolean(complaint.officialSubmissionConfirmed && reporterComplete && config.officialSubmissionEndpoint);
+        let officialText = !reporterComplete
+          ? '本次只送出平台紀錄；環境部個資未完成，因此不送出環境部。'
+          : !complaint.officialSubmissionConfirmed
+            ? '本次只送出平台紀錄；尚未勾選環境部確認，因此不送出環境部。'
+            : !config.officialSubmissionEndpoint
+              ? '本次只送出平台紀錄；環境部填單服務尚未啟用。'
+              : '請至環境部系統確認正式提交。';
+        if (officialReady) {
           try {
             const officialResult = await submitOfficialComplaint(getOfficialSubmissionPacket());
             officialText = officialResult.status === 'submitted'

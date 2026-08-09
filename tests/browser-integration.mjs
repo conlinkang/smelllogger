@@ -70,11 +70,13 @@ async function configureRoutes(page, state) {
   });
 }
 
-async function openIndex(browser, state) {
+async function openIndex(browser, state, { withLocation = true } = {}) {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
-    geolocation: { latitude: 23.713179, longitude: 120.50558 },
-    permissions: ['geolocation']
+    ...(withLocation ? {
+      geolocation: { latitude: 23.713179, longitude: 120.50558 },
+      permissions: ['geolocation']
+    } : {})
   });
   const page = await context.newPage();
   await configureRoutes(page, state);
@@ -89,6 +91,12 @@ const address = server.address();
 const baseUrl = `http://127.0.0.1:${address.port}`;
 const browser = await chromium.launch({ headless: true });
 try {
+  const noLocationState = { baseUrl, platformPayload: null, officialPayload: null };
+  const noLocation = await openIndex(browser, noLocationState, { withLocation: false });
+  assert.equal(await noLocation.page.locator('#submitButton').isDisabled(), true, 'submit button must be disabled before a location is selected');
+  assert.equal(await noLocation.page.locator('#submitButton').innerText(), '請先完成定位');
+  await noLocation.context.close();
+
   const namedState = { baseUrl, platformPayload: null, officialPayload: null };
   const named = await openIndex(browser, namedState);
   const namedButtonBox = await named.page.locator('#submitButton').boundingBox();
@@ -102,6 +110,8 @@ try {
   await named.page.locator('#reporterEmail').fill('integration@example.com');
   await named.page.locator('#reporterAddress').fill('雲林縣斗六市科福一街156號');
   await named.page.locator('#officialSubmissionConfirmed').check();
+  assert.equal(await named.page.locator('#submitButton').innerText(), '送出平台紀錄＋環境部填單');
+  assert.equal(await named.page.locator('#submitButton').isDisabled(), false);
   await named.page.locator('#submitButton').click();
   await named.page.waitForTimeout(700);
   assert.equal(namedState.officialPayload?.mode, 'submit');
@@ -117,10 +127,14 @@ try {
 
   const platformOnlyState = { baseUrl, platformPayload: null, officialPayload: null };
   const platformOnly = await openIndex(browser, platformOnlyState);
+  await platformOnly.page.locator('#reporterName').fill('partial-reporter');
+  assert.equal(await platformOnly.page.locator('#submitButton').innerText(), '送出平台紀錄');
+  assert.equal(await platformOnly.page.locator('#submitButton').isDisabled(), false);
   await platformOnly.page.locator('#submitButton').click();
   await platformOnly.page.waitForTimeout(700);
   assert.equal(platformOnlyState.platformPayload?.reporter, undefined);
   assert.equal(platformOnlyState.officialPayload, null);
+  assert.match(await platformOnly.page.locator('#message').innerText(), /只送出平台紀錄/);
   await platformOnly.context.close();
 
   console.log('browser-integration: PASS');
