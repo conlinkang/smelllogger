@@ -81,10 +81,18 @@
 
   function parseOfficialLocation(addressText) {
     const value = String(addressText || '').trim();
-    const match = value.match(/^(.*?[縣市])\s*(.*?[市鎮鄉區])(?:\s*(.*))?$/);
+    const withoutTaiwanPrefix = value
+      .replace(/^(?:台灣|臺灣)\s*[,，、]?\s*/, '')
+      .replace(/^[,，、\s]+/, '');
+    const yunlinIndex = withoutTaiwanPrefix.indexOf('雲林縣');
+    const normalized = yunlinIndex >= 0 ? withoutTaiwanPrefix.slice(yunlinIndex) : withoutTaiwanPrefix;
+    const countyMatch = normalized.match(/^([\u4e00-\u9fff]{2,4}(?:縣|市))/);
+    const county = countyMatch ? countyMatch[1] : '';
+    const remainder = county ? normalized.slice(county.length).replace(/^[,，、\s]+/, '') : '';
+    const townMatch = remainder.match(/^([\u4e00-\u9fff]{1,6}(?:市|鎮|鄉|區))/);
     return {
-      county: match ? match[1] : '',
-      town: match ? match[2] : '',
+      county,
+      town: townMatch ? townMatch[1] : '',
       addressNote: value
     };
   }

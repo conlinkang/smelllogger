@@ -224,12 +224,12 @@
 
   <footer>網頁製作人: <a href="https://che.ccu.edu.tw/p/405-1103-60621,c1154.php?Lang=zh-tw" target="_blank" rel="noopener">康嘉麟教授(中正大學化工系)</a></footer>
 
-  <script src="assets/js/app-config.js?v=20260809-2"></script>
+  <script src="assets/js/app-config.js?v=20260809-3"></script>
   <script src="assets/js/date-utils.js"></script>
   <script src="assets/js/weather-client.js"></script>
-  <script src="assets/js/submission-client.js"></script>
+  <script src="assets/js/submission-client.js?v=20260809-2"></script>
   <script src="assets/js/map-loader.js?v=20260809" defer></script>
-  <script src="assets/js/report-form.js?v=20260809-6" defer></script>
+  <script src="assets/js/report-form.js?v=20260809-7" defer></script>
   <script src="assets/js/voice-assistant.js?v=20260809-1" defer></script>
 
   <script>
@@ -459,7 +459,9 @@
                 : '官方填單服務尚未完成，請至環境部系統確認提交。';
           } catch (officialError) {
             console.warn('官方填單服務未完成：', officialError);
-            officialText = '官方填單服務未完成，平台紀錄仍已送出；請至環境部系統確認提交。';
+            officialText = officialError.name === 'AbortError'
+              ? '官方填單服務逾時，平台紀錄仍已送出；請稍後重試或至環境部系統確認提交。'
+              : `官方填單服務未完成（${officialError.code || '網路錯誤'}），平台紀錄仍已送出；請至環境部系統確認提交。`;
           }
         } else if (complaint.officialSubmissionConfirmed && !reporterComplete) {
           officialText = '平台紀錄已送出；具名資料不完整，未啟動官方填單。';

@@ -9,6 +9,7 @@ window.APP_CONFIG = Object.freeze({
   officialSubmissionEndpoint: 'https://smelllogger-runner-442879625893.asia-east1.run.app/submit',
   officialSubmissionMode: 'prepare',
   officialFinalConfirmationText: '我確認以本人資料正式陳情',
+  officialSubmissionTimeoutMs: 60000,
   // Cloud Run voice endpoint. Audio is sent only after the user starts recording.
   voiceAnalysisEndpoint: 'https://smelllogger-runner-442879625893.asia-east1.run.app/analyze-voice',
   voiceMaxSeconds: 15,

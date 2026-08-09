@@ -102,6 +102,8 @@ try {
   await named.page.waitForTimeout(700);
   assert.equal(namedState.officialPayload?.mode, 'prepare');
   assert.equal(namedState.officialPayload?.reporter?.name, 'integration-test');
+  assert.equal(namedState.officialPayload?.complaint?.officialForm?.pollutionCounty, '雲林縣');
+  assert.match(await named.page.locator('#message').innerText(), /已填到官方確認階段/);
   assert.equal(JSON.stringify(namedState.platformPayload).includes('0900000000'), false);
   assert.equal(JSON.stringify(namedState.platformPayload).includes('integration@example.com'), false);
   await named.context.close();

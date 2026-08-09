@@ -274,6 +274,10 @@ for (const file of ['index_test.html']) {
 }
 
 const runnerSource = read('official-form-runner/server.js');
+const configSource = read('assets/js/app-config.js');
+const submissionSource = read('assets/js/submission-client.js');
+assert.match(configSource, /officialSubmissionTimeoutMs: 60000/);
+assert.match(submissionSource, /officialSubmissionTimeoutMs/);
 assert.match(runnerSource, /REQUIRED_COUNTY = process\.env\.REQUIRED_COUNTY \|\| '雲林縣'/);
 assert.match(runnerSource, /mode === 'prepare'/);
 assert.match(runnerSource, /OFFICIAL_SUBMIT_ENABLED/);
