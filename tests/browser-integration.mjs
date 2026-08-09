@@ -195,11 +195,14 @@ try {
   await ready.page.waitForFunction(() => !document.querySelector('#officialCaptchaPanel')?.hidden);
   assert.equal(await ready.page.locator('#officialCaptchaImageWrap').isVisible(), false, 'empty CAPTCHA image must stay hidden before the official page exposes it');
   assert.equal(await ready.page.locator('#officialCaptchaField').isVisible(), false, 'CAPTCHA input must stay hidden before the official page exposes it');
-  assert.equal(await ready.page.locator('#officialCaptchaSubmit').innerText(), '確認送出環境部陳情');
+  assert.equal(await ready.page.locator('#official-captcha-title').innerText(), '下一步：取得環境部驗證碼');
+  assert.match(await ready.page.locator('#officialCaptchaInstructions').innerText(), /尚未送出|只會前往驗證碼頁/);
+  assert.equal(await ready.page.locator('#officialCaptchaSubmit').innerText(), '取得環境部驗證碼');
   await ready.page.locator('#officialCaptchaSubmit').click();
-  await ready.page.waitForFunction(() => document.querySelector('#officialCaptchaStatus')?.textContent?.includes('尚可嘗試 3 次'));
+  await ready.page.waitForFunction(() => document.querySelector('#officialCaptchaStatus')?.textContent?.includes('已取得環境部驗證碼'));
   assert.equal(await ready.page.locator('#officialCaptchaImageWrap').isVisible(), true, 'CAPTCHA image should appear when the official page reaches verification');
   assert.equal(await ready.page.locator('#officialCaptchaField').isVisible(), true, 'CAPTCHA input should appear when the official page reaches verification');
+  assert.equal(await ready.page.locator('#officialCaptchaSubmit').innerText(), '輸入驗證碼並正式送出環境部陳情');
   await ready.context.close();
 
   const platformOnlyState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null };
