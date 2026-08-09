@@ -27,6 +27,7 @@ const packet = {
 
 assert.equal(validatePacket(packet).ok, true);
 assert.equal(validatePacket({ ...packet, reporter: { ...packet.reporter, email: '' } }).code, 'REPORTER_INCOMPLETE');
+assert.equal(validatePacket({ ...packet, reporter: { ...packet.reporter, address: '科福一街156號' } }).code, 'REPORTER_ADDRESS_UNPARSEABLE');
 assert.equal(validatePacket({ ...packet, complaint: { ...packet.complaint, officialForm: { ...packet.complaint.officialForm, pollutionCounty: '嘉義縣' } } }).code, 'COUNTY_MISMATCH');
 assert.equal(validatePacket({ ...packet, mode: 'submit', finalSubmit: true }).code, 'FINAL_CONFIRMATION_REQUIRED');
 assert.equal(validatePacket({ ...packet, mode: 'submit', finalSubmit: true, confirmationText: '我確認以本人資料正式陳情' }).ok, true);

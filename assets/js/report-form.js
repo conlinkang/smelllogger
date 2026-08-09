@@ -137,7 +137,17 @@
   }
 
   function hasCompleteReporterProfile(profile) {
-    return reporterFields().every(id => String(profile[id] || '').trim() !== '');
+    const fieldsComplete = reporterFields().every(id => String(profile[id] || '').trim() !== '');
+    const address = parseOfficialLocation(profile.reporterAddress);
+    return fieldsComplete && Boolean(address.county && address.town);
+  }
+
+  function isReporterCompleteForOfficial(complaint) {
+    const reporter = complaint && complaint.reporter ? complaint.reporter : {};
+    const fieldsComplete = ['name', 'phone', 'email', 'address']
+      .every(key => String(reporter[key] || '').trim() !== '');
+    const address = parseOfficialLocation(reporter.address);
+    return fieldsComplete && Boolean(address.county && address.town);
   }
 
   function setReporterProfileStatus(message) {
@@ -168,7 +178,7 @@
   function saveReporterProfile() {
     const profile = readReporterProfile();
     if (!hasCompleteReporterProfile(profile)) {
-      setReporterProfileStatus('四項資料填寫完整後，才會記住於本機。');
+      setReporterProfileStatus('四項資料完整，且聯絡地址需包含縣市與鄉鎮市區後，才會記住於本機。');
       return false;
     }
     try {
@@ -448,5 +458,6 @@
   window.getComplaintData = getComplaintData;
   window.getPlatformComplaintData = getPlatformComplaintData;
   window.getOfficialSubmissionPacket = getOfficialSubmissionPacket;
+  window.isReporterCompleteForOfficial = isReporterCompleteForOfficial;
   window.addEventListener('DOMContentLoaded', setupReportForm);
 })();

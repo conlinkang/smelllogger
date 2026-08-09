@@ -123,7 +123,12 @@ function normalizePacket(body) {
 
 function validatePacket(body) {
   const packet = normalizePacket(body);
-  const reporterValues = Object.values(packet.reporter);
+  const requiredReporterValues = [
+    packet.reporter.name,
+    packet.reporter.phone,
+    packet.reporter.email,
+    packet.reporter.address
+  ];
   const county = packet.complaint.officialForm.pollutionCounty;
   if (!['prepare', 'submit'].includes(packet.mode)) {
     return { ok: false, status: 400, code: 'INVALID_MODE', message: 'mode must be prepare or submit' };
@@ -131,8 +136,8 @@ function validatePacket(body) {
   if (!packet.officialSubmissionConfirmed) {
     return { ok: false, status: 400, code: 'CONFIRMATION_REQUIRED', message: 'Explicit official submission confirmation is required' };
   }
-  if (reporterValues.some(value => value === '')) {
-    return { ok: false, status: 400, code: 'REPORTER_INCOMPLETE', message: 'Name, phone, email, and address are required' };
+  if (requiredReporterValues.some(value => value === '')) {
+    return { ok: false, status: 400, code: 'REPORTER_INCOMPLETE', message: '姓名、電話、電子信箱與聯絡地址為必填' };
   }
   if (!packet.reporter.county || !packet.reporter.town) {
     return { ok: false, status: 400, code: 'REPORTER_ADDRESS_UNPARSEABLE', message: 'Reporter address must include a county/city and town/district' };
