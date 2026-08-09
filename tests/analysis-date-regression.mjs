@@ -125,8 +125,13 @@ try {
   assert.equal(await page.locator('#recordCount').textContent(), '2', '2024-10 monthly records should be displayed');
   assert.equal(await page.locator('#trendChart svg').count(), 1, '2024-10 should render a trend chart');
 
-  await page.locator('.timeMarker').first().click();
-  assert.equal(await page.locator('.timeMarker.activeMarker').count(), 1, 'selected time marker should be highlighted');
+  const timeSlider = page.locator('#timeSlider');
+  assert.equal(await timeSlider.count(), 1, 'compact time slider should be rendered');
+  await timeSlider.evaluate((element) => {
+    element.value = '0';
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  assert.equal(await page.locator('#timeSelectionCount').innerText(), '第 1 / 2 筆', 'selected time should show its position in the filtered records');
   assert.match(await page.locator('#timeDisplay').innerText(), /臭味程度/);
   assert.ok(await page.evaluate(() => window.__yellowCircleCount > 0), 'selected report should create a yellow map highlight');
 

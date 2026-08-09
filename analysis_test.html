@@ -138,62 +138,30 @@
     .timebar-section { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
     .timebar-title { margin: 0; font-weight: 700; }
     .timebar-hint { margin: 2px 0 8px; color: var(--muted); font-size: .9rem; }
-    .timebar-scroll { overflow-x: auto; padding: 2px 2px 8px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
     #colorBarContainer {
       position: relative;
       width: 100%;
-      min-width: 520px;
-      height: 64px;
+      height: 58px;
       border: 1px solid #c5d2e1;
       border-radius: 10px;
       background: linear-gradient(to right, #2563eb, #dc2626) center / calc(100% - 16px) 12px no-repeat;
+      display: grid;
+      place-items: center;
     }
-    .timeMarker {
-      position: absolute;
-      top: 2px;
-      width: 44px;
-      height: 58px;
-      padding: 0;
-      border: 0;
-      border-radius: 9px;
-      background: transparent;
-      transform: translateX(-50%);
-      cursor: pointer;
-      opacity: 1;
-      touch-action: manipulation;
-    }
-    .timeMarker::before {
-      content: '';
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      width: 3px;
-      height: 42px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, .95);
-      box-shadow: 0 0 0 1px rgba(24, 50, 75, .22);
-      transform: translateX(-50%);
-    }
-    .timeMarker::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 50%;
-      width: 12px;
-      height: 12px;
-      border: 2px solid #fff;
-      border-radius: 50%;
-      background: #fff;
-      box-shadow: 0 1px 4px rgba(24, 50, 75, .35);
-      transform: translateX(-50%);
-    }
-    .timeMarker:hover, .timeMarker:focus-visible { background: rgba(255, 255, 255, .25); outline: 2px solid #1769aa; outline-offset: 1px; }
-    .timeMarker.activeMarker { background: rgba(250, 204, 21, .25); }
-    .timeMarker.activeMarker::before { width: 5px; background: #facc15; box-shadow: 0 0 0 1px #854d0e, 0 0 8px rgba(250, 204, 21, .9); }
-    .timeMarker.activeMarker::after { border-color: #854d0e; background: #facc15; }
+    #timeSlider { box-sizing: border-box; width: calc(100% - 20px); min-height: 44px; margin: 0; accent-color: #facc15; cursor: pointer; touch-action: manipulation; }
+    #timeSlider:focus-visible { outline: 2px solid #1769aa; outline-offset: 3px; }
+    #timeSlider::-webkit-slider-runnable-track { height: 12px; border-radius: 8px; background: linear-gradient(to right, #2563eb, #dc2626); box-shadow: 0 0 0 1px rgba(24, 50, 75, .22); }
+    #timeSlider::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -8px; border: 3px solid #854d0e; border-radius: 50%; background: #facc15; appearance: none; }
+    #timeSlider::-moz-range-track { height: 12px; border-radius: 8px; background: linear-gradient(to right, #2563eb, #dc2626); box-shadow: 0 0 0 1px rgba(24, 50, 75, .22); }
+    #timeSlider::-moz-range-thumb { width: 22px; height: 22px; border: 3px solid #854d0e; border-radius: 50%; background: #facc15; }
+    #timeSelectionControls { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+    #timeSelectionControls button { min-width: 76px; min-height: 42px; padding: 6px 8px; border: 1px solid #b8c6d8; border-radius: 8px; background: #fff; color: var(--accent-dark); font: inherit; cursor: pointer; touch-action: manipulation; }
+    #timeSelectionControls button:disabled { cursor: not-allowed; opacity: .45; }
+    #timeSelectionCount { flex: 1; color: var(--muted); text-align: center; font-size: .9rem; }
     #timeDisplay { min-height: 24px; margin-top: 4px; padding: 7px 9px; border-radius: 8px; background: var(--surface-soft); color: var(--ink); text-align: center; font-weight: 600; }
     #timeDisplay_start_end { display: flex; justify-content: space-between; gap: 12px; margin-top: 2px; color: var(--muted); font-size: .85rem; }
     #minSmellLevel { min-width: 70px; }
+    .level-filter small { color: var(--muted); font-size: .78rem; font-weight: 400; }
     footer {
       margin-top: 20px;
       text-align: center;
@@ -239,10 +207,11 @@
       日期:
       <input type="text" id="filterDate">
     </label>
-    <a href="index.html" class="control-item">
+    <a href="index_test.html" class="control-item">
       <button class="return-button">返回臭味標記頁面</button>
     </a>
-    <label class="control-item">      
+    <label class="control-item level-filter" for="minSmellLevel">
+      <span>臭味等級篩選（顯示此等級以上）</span>
       <select id="minSmellLevel">
         <option value="1" selected>1</option>
         <option value="2">2</option>
@@ -250,6 +219,7 @@
         <option value="4">4</option>
         <option value="5">5</option>
       </select>
+      <small id="minSmellLevelHint">選 3 = 顯示 3～5 級紀錄</small>
     </label>
   </div>
   <section class="dashboard-summary" aria-label="分析摘要">
@@ -278,12 +248,15 @@
     </div>
     <div class="timebar-section" aria-labelledby="timebar-title">
       <p id="timebar-title" class="timebar-title">風向與通報時間</p>
-      <p class="timebar-hint">箭頭顏色由藍漸變至紅代表時間順序；請點選時間點，地圖會以黃色標記對應通報位置。</p>
-      <div class="timebar-scroll">
-        <div id="colorBarContainer" role="listbox" aria-label="通報時間條"></div>
+      <p class="timebar-hint">藍色到紅色代表時間順序；拖曳滑桿或按上一筆／下一筆，地圖會以黃色標記對應位置。</p>
+      <div id="colorBarContainer" role="group" aria-label="通報時間軸"></div>
+      <div id="timeSelectionControls">
+        <button type="button" id="timePrev" disabled>上一筆</button>
+        <span id="timeSelectionCount">尚未選取通報</span>
+        <button type="button" id="timeNext" disabled>下一筆</button>
       </div>
       <div id="timeDisplay_start_end"></div>
-      <div id="timeDisplay" role="status" aria-live="polite">請點選時間條上的通報點。</div>
+      <div id="timeDisplay" role="status" aria-live="polite">請拖曳時間軸或按上一筆／下一筆選取通報。</div>
     </div>
     
 
@@ -298,7 +271,6 @@
     const intensityCircles = [];
     const overlayViews = [];
     let recordDates = [];
-    let activeMarker = null;
     let selectedMapHighlight = null;
     let selectedMapPin = null;
     let loadController = null;
@@ -756,43 +728,52 @@
     }
 
     function drawColorMarkers(records, startTime, endTime) {
-      //console.log(records.length);
       const container = document.getElementById('colorBarContainer');
       container.innerHTML = '';
-      container.style.width = `${Math.max(520, records.length * 44)}px`;
-      activeMarker = null;
+      container.style.width = '100%';
       clearSelectedMapRecord();
 
-      const duration = endTime - startTime;
-      records.forEach((record, index) => {
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.id = 'timeSlider';
+      slider.min = '0';
+      slider.max = String(Math.max(0, records.length - 1));
+      slider.step = '1';
+      slider.value = '0';
+      slider.disabled = records.length === 0;
+      slider.setAttribute('aria-label', '選取通報時間');
+      container.appendChild(slider);
+
+      const previousButton = document.getElementById('timePrev');
+      const nextButton = document.getElementById('timeNext');
+      const selectionCount = document.getElementById('timeSelectionCount');
+      const timeDisplay = document.getElementById('timeDisplay');
+
+      function selectTimeRecord(index) {
+        if (!records.length) {
+          selectionCount.textContent = '目前篩選範圍沒有通報';
+          previousButton.disabled = true;
+          nextButton.disabled = true;
+          return;
+        }
+
+        const safeIndex = Math.max(0, Math.min(records.length - 1, Number(index) || 0));
+        const record = records[safeIndex];
         const time = new Date(record.聞到的時間);
-        const position = duration > 0 ? Math.max(0, Math.min(100, (time - startTime) / duration * 100)) : 50;
+        slider.value = String(safeIndex);
+        selectionCount.textContent = `第 ${safeIndex + 1} / ${records.length} 筆`;
+        timeDisplay.innerText = `已選取 ${formatSelectedTime(time)}；臭味程度 ${record.臭味程度} 級，地圖以黃色標記位置。`;
+        previousButton.disabled = safeIndex === 0;
+        nextButton.disabled = safeIndex === records.length - 1;
+        showSelectedMapRecord(record);
+      }
 
-        const marker = document.createElement('button');
-        marker.type = 'button';
-        marker.className = 'timeMarker';
-        marker.style.left = `${position}%`;
-        marker.dataset.recordIndex = String(index);
-        marker.setAttribute('role', 'option');
-        marker.setAttribute('aria-selected', 'false');
-        marker.setAttribute('aria-label', `選取 ${formatSelectedTime(time)}，臭味程度 ${record.臭味程度} 級`);
-        marker.title = `點選查看 ${formatSelectedTime(time)} 的通報位置`;
+      slider.addEventListener('input', () => selectTimeRecord(slider.value));
+      slider.addEventListener('change', () => selectTimeRecord(slider.value));
+      previousButton.onclick = () => selectTimeRecord(Number(slider.value) - 1);
+      nextButton.onclick = () => selectTimeRecord(Number(slider.value) + 1);
 
-        marker.addEventListener('click', () => {
-          if (activeMarker) {
-            activeMarker.classList.remove('activeMarker');
-            activeMarker.setAttribute('aria-selected', 'false');
-          }
-          marker.classList.add('activeMarker');
-          marker.setAttribute('aria-selected', 'true');
-          activeMarker = marker;
-          document.getElementById('timeDisplay').innerText = `已選取 ${formatSelectedTime(time)}；臭味程度 ${record.臭味程度} 級，地圖以黃色標記位置。`;
-          showSelectedMapRecord(record);
-          marker.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        });
-
-        container.appendChild(marker);
-      });
+      selectTimeRecord(0);
 
       const analysisType = $('#analysisType').val();
       const startTimeDiv = document.createElement('div');
