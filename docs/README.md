@@ -41,7 +41,7 @@ python -m http.server 8000
 }
 ```
 
-前端目前會將反向地理編碼取得的地址，以及發生地點的天氣型態、溫度、風速、風向加入自動說明；也提供環境部異味快速分類、複製說明與人工確認時的環境部公害污染陳情系統入口。Cloud Run 的 Playwright runner 已啟用 `submit` 模式：使用者勾選具名確認且資料完整後，服務才會執行環境部表單最後送出；遇到 CAPTCHA 或結果無法確認時回傳 `manual_required`。
+前端目前會將反向地理編碼取得的地址，以及發生地點的天氣型態、溫度、風速、風向加入自動說明；也提供環境部異味快速分類與 CAPTCHA 人工接力。使用者勾選具名確認且資料完整後，Cloud Run 先填到最後驗證頁，將 CAPTCHA 顯示回平台；本人輸入後才由同一短效工作階段送出。
 
 已部署的 runner：
 
@@ -50,6 +50,8 @@ https://smelllogger-runner-442879625893.asia-east1.run.app
 ```
 
 - `/health`：健康檢查。
+- `/prepare`：準備環境部表單並回傳 CAPTCHA 與 5 分鐘短效工作階段。
+- `/finalize`：接收本人輸入的 CAPTCHA；錯誤可更新圖片重試，最多 3 次。
 - `/submit`：具名資料完整時填寫環境部表單；`prepare` 可停在最後確認前，`submit` 在服務端開關與固定確認條件都通過時才會按下最後送出。
 - `/analyze-voice`：一次性語音轉寫與 Vertex AI 候選分類；使用者仍可修改快速選項。
 

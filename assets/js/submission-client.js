@@ -1,4 +1,32 @@
 (function () {
+  async function postOfficial(endpoint, payload) {
+    const config = window.APP_CONFIG || {};
+    if (!endpoint) return { status: 'not_configured' };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), config.officialSubmissionTimeoutMs || 60000);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        mode: 'cors',
+        signal: controller.signal
+      });
+      let body = {};
+      try { body = await response.json(); } catch (error) { /* Keep the transport error below. */ }
+      if (!response.ok) {
+        const requestError = new Error(body.message || `Official submission service returned ${response.status}`);
+        requestError.code = body.code || 'OFFICIAL_SUBMISSION_FAILED';
+        requestError.status = response.status;
+        requestError.result = body;
+        throw requestError;
+      }
+      return body;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   window.submitRecord = async function (payload) {
     const config = window.APP_CONFIG || {};
     if (!config.recordEndpoint) throw new Error('Record endpoint is not configured');
@@ -24,30 +52,25 @@
 
   window.submitOfficialComplaint = async function (packet) {
     const config = window.APP_CONFIG || {};
-    if (!config.officialSubmissionEndpoint) {
-      return { status: 'not_configured' };
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), config.requestTimeoutMs || 15000);
-    try {
-      const response = await fetch(config.officialSubmissionEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...packet, mode: config.officialSubmissionMode || 'prepare' }),
-        mode: 'cors',
-        signal: controller.signal
-      });
-      let body = {};
-      try { body = await response.json(); } catch (error) { /* Keep the transport error below. */ }
-      if (!response.ok) {
-        const error = new Error(body.message || `Official submission service returned ${response.status}`);
-        error.code = body.code || 'OFFICIAL_SUBMISSION_FAILED';
-        error.status = response.status;
-        throw error;
-      }
-      return body;
-    } finally {
-      clearTimeout(timeout);
-    }
+    return postOfficial(config.officialSubmissionEndpoint, { ...packet, mode: packet.mode || config.officialSubmissionMode || 'prepare' });
+  };
+
+  window.prepareOfficialComplaint = async function (packet) {
+    const config = window.APP_CONFIG || {};
+    return postOfficial(config.officialPrepareEndpoint, {
+      ...packet,
+      mode: 'prepare',
+      finalSubmit: false,
+      confirmationText: ''
+    });
+  };
+
+  window.finalizeOfficialComplaint = async function (sessionId, captchaText) {
+    const config = window.APP_CONFIG || {};
+    return postOfficial(config.officialFinalizeEndpoint, {
+      sessionId,
+      captchaText,
+      confirmationText: config.officialFinalConfirmationText || ''
+    });
   };
 })();
