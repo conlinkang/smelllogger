@@ -3,7 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>臭味熱點分析2.0</title>
+  <script>
+    (() => {
+      const versionUrl = new URL('assets/app-version.json', window.location.href);
+      versionUrl.searchParams.set('_', Date.now().toString());
+      fetch(versionUrl, { cache: 'no-store' })
+        .then(response => response.ok ? response.json() : Promise.reject(new Error('version unavailable')))
+        .then(({ version }) => {
+          if (!version) return;
+          const currentUrl = new URL(window.location.href);
+          if (currentUrl.searchParams.get('v') === version) return;
+          currentUrl.searchParams.set('v', version);
+          window.location.replace(currentUrl.toString());
+        })
+        .catch(() => {});
+    })();
+  </script>
   <style>
     :root { color-scheme: light; --ink: #18324b; --muted: #5d7186; --surface: #ffffff; --surface-soft: #f5f9fd; --line: #dbe5ef; --accent: #1769aa; --accent-dark: #0d4775; }
     body { max-width: 1240px; margin: 0 auto; padding: 22px clamp(14px, 3vw, 36px) 32px; color: var(--ink); background: #edf4fa; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5; }
