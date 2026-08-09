@@ -53,6 +53,22 @@
     }
   };
 
+  const smellLevelDescriptions = {
+    1: '略有臭味',
+    2: '輕微臭味',
+    3: '明顯臭味',
+    4: '很重且刺鼻',
+    5: '非常強烈，令人噁心或感到窒息'
+  };
+
+  const smellLevelPhrases = {
+    1: '淡淡的',
+    2: '輕微的',
+    3: '明顯的',
+    4: '很重且刺鼻的',
+    5: '非常強烈、令人噁心的'
+  };
+
   function getValue(id) {
     const element = document.getElementById(id);
     return element ? element.value : '';
@@ -99,7 +115,15 @@
 
   function getSmellLevelText() {
     const selected = document.querySelector('input[name="smellLevel"]:checked');
-    return selected ? `${selected.value} 級` : '未選擇';
+    const description = selected ? smellLevelDescriptions[selected.value] : '';
+    return selected
+      ? `${selected.value}級${description ? `（${description}）` : ''}`
+      : '未選擇';
+  }
+
+  function getSmellLevelPhrase() {
+    const selected = document.querySelector('input[name="smellLevel"]:checked');
+    return selected ? (smellLevelPhrases[selected.value] || '') : '';
   }
 
   function getWeatherInfo(elementId) {
@@ -244,9 +268,13 @@
     const time = formatDateTime(getValue('smellTime'));
     const address = getAddressText();
     const weatherLine = formatWeatherInfo(getWeatherInfo('weatherInfo'));
+    const smellLevelPhrase = getSmellLevelPhrase();
+    const impactSentence = impacts.length > 0 && !impacts.includes(optionLabels.impact.none)
+      ? `，我感覺${impacts.join('、')}`
+      : '';
 
     const sentences = [
-      `於 ${time}，在${address}聞到${odorType}，臭味程度為${getSmellLevelText()}，持續約${duration}。`
+      `於 ${time}，${address}有${smellLevelPhrase}${odorType}（臭味程度${getSmellLevelText()}），持續約${duration}${impactSentence}。`
     ];
 
     if (moenvCause) sentences.push(`環境部快速分類為「${moenvCause}」。`);
