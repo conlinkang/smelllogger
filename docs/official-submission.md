@@ -21,9 +21,9 @@
 - 現場照片為選填；手機端壓縮後只傳給當次 Cloud Run／環境部第四步，不存入 localStorage、平台紀錄或 Google Sheet。
 - 已將「畜牧或堆肥異味」作為預設快速選項，並支援規則式選項與自動產生說明文字。
 - 說明文字會附註：`本通報由 https://conlinkang.github.io/smelllogger/index.html 輔助填單。`
-- `official-form-runner/` 已用真實官方表單，以假資料完成第一至第三階段的本機 Playwright prepare 端到端測試；測試回傳 `202 READY_FOR_FINAL_REVIEW`，未送出案件。正式送出不使用假資料測試。
+- `official-form-runner/` 已用真實官方表單與受控測試資料完成第一至第五階段的 Cloud Run Playwright prepare 端到端驗證；測試回傳 `202 CAPTCHA_REQUIRED`，並在 CAPTCHA 前停止，未送出案件。
 - 已加入可選語音流程：Google Cloud Speech-to-Text 轉寫，Vertex AI Gemini 只回傳既有選項的候選分類；前端規則式說明文字仍是最後來源。
-- Cloud Run 已部署並完成驗證；目前 revision 為 `smelllogger-runner-00009-m5c`，服務網址為 `https://smelllogger-runner-442879625893.asia-east1.run.app`。`/health` 回傳 `officialSubmitEnabled:true`、`captchaRelayEnabled:true`、300 秒期限與 3 次 CAPTCHA 上限。
+- Cloud Run 已部署並完成 CAPTCHA 前階段驗證；目前 revision 為 `smelllogger-runner-00021-b47`，服務網址為 `https://smelllogger-runner-442879625893.asia-east1.run.app`。`/health` 回傳 `officialSubmitEnabled:true`、`captchaRelayEnabled:true`、`diagnosticScreenshotEnabled:false`、300 秒期限與 3 次 CAPTCHA 上限。
 
 ## Cloud Run 自動填單流程
 
@@ -31,7 +31,7 @@
 
 1. 前端驗證 GPS、雲林縣、鄉鎮市區、異味選項與必要的具名資料。
 2. 通報資料以 HTTPS 傳給 Cloud Run；後端不保存 request body。為了銜接 CAPTCHA，Playwright 工作階段只暫存在單一 Cloud Run 執行個體的記憶體，預設 5 分鐘後清除。
-3. Playwright 開啟環境部表單，完成同意頁、異味分類、描述、污染地點與具名資料欄位。
+3. Playwright 開啟環境部表單，完成同意頁、異味分類、描述、污染地點、平台地圖選定的經緯度與具名資料欄位；污染地點和填單人聯絡地址分開填入。
 4. 若使用者選擇現場照片，Playwright 在環境部第四步上傳附件；未選附件仍可直接繼續。
 5. `/prepare` 前進至第五步，將 CAPTCHA 圖片與不可猜測的短效 session ID 回傳平台；CAPTCHA 只由使用者辨識，不交給 OCR 或 LLM。
 6. `/finalize` 在同一工作階段輸入使用者提供的 CAPTCHA 並按下最後送出。錯誤時更新圖片，可重試至多 3 次；逾時、超過次數、執行個體重啟或流程異常時，必須重新準備。
