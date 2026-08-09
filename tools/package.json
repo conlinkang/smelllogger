@@ -1,0 +1,9 @@
+{
+  "name": "smelllogger",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node ../tests/smoke-tests.js && node ../tests/runner-tests.mjs",
+    "test:browser": "node ../tests/browser-integration.mjs && node ../tests/analysis-date-regression.mjs"
+  }
+}
