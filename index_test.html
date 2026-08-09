@@ -143,6 +143,7 @@
     .captcha-actions button.primary { background: #1769aa; color: #fff; }
     .captcha-actions button:disabled { cursor: not-allowed; opacity: .5; }
     #officialCaptchaStatus { color: #8a4300; font-weight: 700; }
+    .official-completion-reminder { margin: 12px 0 0; padding: 10px 12px; border-left: 4px solid #d59a00; border-radius: 6px; background: #fff7d6; color: #653f00; font-weight: 700; line-height: 1.55; }
     #officialCaptchaExpiry { color: #5d7186; font-size: .86rem; }
     .attachment-picker { margin-top: 12px; padding: 12px; border: 1px solid #9ebbd4; border-radius: 10px; background: #f7fbff; }
     .attachment-picker h5 { margin: 0 0 6px; color: #174d74; font-size: 1rem; }
@@ -328,6 +329,7 @@
         <button type="button" id="officialCaptchaSubmit" class="primary" disabled>輸入驗證碼並確認送出</button>
         <button type="button" id="officialCaptchaRestart" hidden>重新準備環境部表單</button>
       </div>
+      <p id="officialEmailReminder" class="official-completion-reminder">您尚未完成報案，請至信箱收取認證信並由信中連結完成確認，直到取得案件編號後才算完成報案。</p>
       <p id="officialCaptchaStatus" role="status" aria-live="polite"></p>
     </section>
     <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
@@ -629,7 +631,7 @@
           return;
         }
         if (result.status === 'email_verification_required') {
-          if (status) status.textContent = '環境部表單已送出，請至電子信箱完成認證；取得案件編號後才算完成報案。';
+          if (status) status.textContent = '環境部表單已送出。您尚未完成報案，請至信箱收取認證信並由信中連結完成確認，直到取得案件編號後才算完成報案。';
           if (button) button.textContent = '已送出，待信箱認證';
           document.getElementById('message').textContent = '平台紀錄已送出；環境部表單已寄發認證信，請至信箱完成認證。';
           return;

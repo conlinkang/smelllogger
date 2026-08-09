@@ -182,6 +182,8 @@ try {
   assert.equal(namedState.preparePayload?.attachments?.length, 1);
   assert.equal(namedState.preparePayload?.attachments?.[0]?.mimeType, 'image/jpeg');
   assert.equal(await named.page.locator('#officialCaptchaPanel').isVisible(), true, 'prepared form should show the CAPTCHA relay panel');
+  assert.equal(await named.page.locator('#officialEmailReminder').isVisible(), true, 'official email verification reminder must be visible before final submission');
+  assert.match(await named.page.locator('#officialEmailReminder').innerText(), /尚未完成報案.*信箱.*案件編號/s);
   if (proofDir) await named.page.locator('#officialCaptchaPanel').screenshot({ path: path.join(proofDir, 'mobile-captcha-entry.png') });
   assert.equal(await named.page.locator('#officialReviewPanel').isVisible(), false, 'manual fallback should remain hidden while CAPTCHA relay is available');
   assert.equal(await named.page.locator('#officialSimulationPanel').isVisible(), false, 'formal submit fallback should not show the prepare simulation panel');
@@ -194,12 +196,13 @@ try {
   if (proofDir) await named.page.locator('#officialCaptchaPanel').screenshot({ path: path.join(proofDir, 'mobile-captcha-retry.png') });
   await named.page.locator('#officialCaptchaInput').fill('9N9PF');
   await named.page.locator('#officialCaptchaSubmit').click();
-  await named.page.waitForFunction(() => document.querySelector('#officialCaptchaStatus')?.textContent?.includes('電子信箱'));
+  await named.page.waitForFunction(() => document.querySelector('#officialCaptchaStatus')?.textContent?.includes('尚未完成報案'));
   assert.equal(namedState.finalizeCalls, 2);
   assert.equal(namedState.finalizePayload?.sessionId, 'integration_session_abcdefghijklmnopqrstuvwxyz123456');
   assert.equal(namedState.finalizePayload?.captchaText, '9N9PF');
   assert.equal(namedState.finalizePayload?.confirmationText, '我確認以本人資料正式陳情');
   assert.match(await named.page.locator('#message').innerText(), /信箱完成認證/);
+  assert.match(await named.page.locator('#officialCaptchaStatus').innerText(), /尚未完成報案.*信箱.*案件編號/s);
   if (proofDir) await named.page.locator('#officialCaptchaPanel').screenshot({ path: path.join(proofDir, 'mobile-email-verification.png') });
   assert.equal(await named.page.locator('#officialReviewPanel').isVisible(), false, 'successful relay should not expose the manual fallback');
   assert.equal(await named.page.locator('#smellTime').isDisabled(), true, 'system-recorded smell time should not be editable');
