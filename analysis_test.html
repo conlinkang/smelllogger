@@ -334,6 +334,19 @@
         dateSelectionTouched = true;
         loadData();
       });
+      $('#minSmellLevel').on('change', function() {
+        updateMinSmellLevelHint();
+        document.getElementById('timeDisplay').innerText = '';
+        loadData();
+      });
+      updateMinSmellLevelHint();
+    }
+
+    function updateMinSmellLevelHint() {
+      const level = Math.max(1, Math.min(5, Number($('#minSmellLevel').val()) || 1));
+      document.getElementById('minSmellLevelHint').textContent = level === 5
+        ? '選 5 = 僅顯示 5 級紀錄'
+        : `選 ${level} = 顯示 ${level}～5 級紀錄`;
     }
 
     function recordMatchesRegion(record) {
