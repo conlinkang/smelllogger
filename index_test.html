@@ -329,7 +329,7 @@
         <button type="button" id="officialCaptchaSubmit" class="primary" disabled>輸入驗證碼並確認送出</button>
         <button type="button" id="officialCaptchaRestart" hidden>重新準備環境部表單</button>
       </div>
-      <p id="officialEmailReminder" class="official-completion-reminder">您尚未完成報案，請至信箱收取認證信並由信中連結完成確認，直到取得案件編號後才算完成報案。</p>
+      <p id="officialEmailReminder" class="official-completion-reminder">您尚未完成報案，請至信箱收取認證信；若收件匣沒有看到，請檢查垃圾郵件。請由信中連結完成確認，直到取得案件編號後才算完成報案。</p>
       <p id="officialCaptchaStatus" role="status" aria-live="polite"></p>
     </section>
     <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
@@ -631,9 +631,9 @@
           return;
         }
         if (result.status === 'email_verification_required') {
-          if (status) status.textContent = '環境部表單已送出。您尚未完成報案，請至信箱收取認證信並由信中連結完成確認，直到取得案件編號後才算完成報案。';
+          if (status) status.textContent = '環境部表單已送出。您尚未完成報案，請至信箱收取認證信；若收件匣沒有看到，請檢查垃圾郵件。請由信中連結完成確認，直到取得案件編號後才算完成報案。';
           if (button) button.textContent = '已送出，待信箱認證';
-          document.getElementById('message').textContent = '平台紀錄已送出；環境部表單已寄發認證信，請至信箱完成認證。';
+          document.getElementById('message').textContent = '平台紀錄已送出；環境部表單已寄發認證信，若收件匣沒有看到請檢查垃圾郵件，並由信中連結完成認證。';
           return;
         }
         setOfficialCaptchaPanelVisible(false);
