@@ -68,7 +68,7 @@ assert.match(description, /臭味程度4級（很重且刺鼻）/);
 assert.match(description, /我感覺喉嚨或呼吸道不適/);
 assert.match(description, /施肥或堆肥/);
 assert.match(description, /喉嚨或呼吸道不適/);
-assert.match(description, /小雨/);
+assert.match(description, /天氣型態：小雨/);
 assert.match(description, /OpenWeatherMap/);
 assert.match(description, /https:\/\/conlinkang\.github\.io\/smelllogger\/index\.html 輔助填單/);
 assert.equal(complaint.pollutionCategory, '異味污染物');
@@ -98,7 +98,7 @@ assert.equal(reportSandbox.window.hasUnconsentedReporterData(complaint), false);
 assert.equal(reportSandbox.window.hasUnconsentedReporterData({ ...complaint, reporterConsent: false }), false);
 assert.match(reportPacket, /公害污染陳情資料/);
 assert.match(reportPacket, /雲林縣斗六市測試路/);
-assert.match(reportPacket, /發生地點氣象：小雨/);
+assert.match(reportPacket, /發生地點氣象：天氣型態：小雨/);
 assert.match(reportPacket, /環境部快速分類：施肥或堆肥/);
 assert.match(reportPacket, /污染者名稱：不明/);
 
@@ -147,6 +147,31 @@ assert.equal(weatherResult.provider, 'OpenWeatherMap');
 assert.equal(weatherResult.temperature, 31.5);
 assert.equal(weatherResult.windDirection, 180);
 assert.match(weatherRequests[0], /appid=test-weather-key/);
+
+const meteoRequests = [];
+const meteoSandbox = {
+  window: {
+    APP_CONFIG: {
+      weatherProvider: 'openweathermap',
+      weatherApiKey: '',
+      weatherEndpoint: 'https://api.openweathermap.org/data/2.5/weather',
+      weatherFallbackEndpoint: 'https://api.open-meteo.com/v1/forecast'
+    }
+  },
+  URLSearchParams,
+  fetch: async url => {
+    meteoRequests.push(url);
+    return {
+      ok: true,
+      json: async () => ({ current: { weather_code: 2, temperature_2m: 30, wind_speed_10m: 1.5, wind_direction_10m: 90 } })
+    };
+  },
+  console
+};
+runScript('assets/js/weather-client.js', meteoSandbox);
+const meteoResult = await meteoSandbox.window.fetchCurrentWeather(23.7, 120.5);
+assert.equal(meteoResult.weather, '多雲');
+assert.match(meteoRequests[0], /weather_code/);
 
 const summaryElements = {
   recordCount: { textContent: '' },
