@@ -270,8 +270,10 @@ for (const file of ['analysis_test.html']) {
 for (const file of ['index_test.html']) {
   const source = read(file);
    assert.match(source, /康嘉麟教授\(中正大學化工系\)/);
-   assert.match(source, /voiceStartButton/);
-   assert.match(source, /voiceAcousticCue/);
+  assert.match(source, /voiceStartButton/);
+  assert.match(source, /voice-assist/);
+  assert.match(source, /voice-badge/);
+  assert.match(source, /voiceAcousticCue/);
    assert.match(source, /Google Cloud Speech-to-Text/);
 }
 

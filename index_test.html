@@ -98,6 +98,34 @@
     .consent-field { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-weight: normal; line-height: 1.5; }
     .reporter-storage-note { margin: 10px 0 0; color: #526173; font-size: 0.9rem; }
     #reporterProfileStatus { color: #2f6b4f; font-size: 0.9rem; }
+    .voice-assist {
+      margin: 14px 0 18px;
+      padding: 14px 16px 16px;
+      border: 2px solid #e7a22e;
+      border-left: 8px solid #c66a0a;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #fff8e8 0%, #fff 72%);
+      box-shadow: 0 5px 16px rgba(154, 92, 12, .12);
+    }
+    .voice-assist-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .voice-assist h5 { display: flex; align-items: center; gap: 8px; margin: 0; color: #8a4300; font-size: 1.08rem; }
+    .voice-assist h5::before { content: '🎙'; font-size: 1.25rem; line-height: 1; }
+    .voice-badge { padding: 3px 9px; border: 1px solid #d58a20; border-radius: 999px; background: #fff0c9; color: #7a4200; font-size: .78rem; font-weight: 800; white-space: nowrap; }
+    .voice-assist-lead { margin: 7px 0 4px; color: #553713; font-weight: 700; }
+    .voice-assist-example { margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(255, 239, 196, .72); color: #5b421e; }
+    .voice-assist-example strong { color: #8a4300; }
+    .voice-assist-rule { margin: 7px 0 0; color: #6d5635; font-size: .88rem; }
+    .voice-actions { margin-top: 12px; }
+    .voice-actions button { min-height: 48px; border: 2px solid #a95508; border-radius: 9px; background: #c66a0a; color: #fff; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 0 3px 8px rgba(125, 65, 0, .18); }
+    .voice-actions button:hover { background: #9f4f05; }
+    .voice-actions button:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+    .voice-actions #voiceStopButton { background: #8f2d2d; border-color: #762020; }
+    .voice-actions #voiceStopButton:hover { background: #6f2020; }
+    .voice-assist #voiceStatus { margin: 9px 0 0; color: #8a4300; font-weight: 700; }
+    .voice-transcript { margin: 10px 0 0; padding: 8px 10px; border: 1px solid #edcf93; border-radius: 8px; background: #fff; }
+    .voice-transcript strong { color: #6f400c; }
+    .voice-acoustic-cue { margin: 7px 0 0; }
+    .voice-privacy-note { margin-bottom: 0; font-size: .82rem; }
     .submit-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; padding: 8px; border: 1px solid #b9cde0; border-radius: 10px; background: rgba(255,255,255,.95); box-shadow: 0 6px 20px rgba(24,50,75,.14); }
     .submit-bar #submitButton { flex: 1 1 220px; margin: 0; min-height: 48px; font-size: 1.05rem; font-weight: 700; }
     .submit-bar #message { flex: 1 1 100%; margin: 0; }
@@ -147,6 +175,10 @@
       .impact-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
       .report-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
       .report-actions a, .report-actions button, .generate-description { width: 100%; min-height: 42px; box-sizing: border-box; }
+      .voice-assist { margin: 10px 0 14px; padding: 12px; border-left-width: 6px; }
+      .voice-assist h5 { font-size: 1rem; }
+      .voice-actions { display: grid; grid-template-columns: 1fr; }
+      .voice-actions button { width: 100%; min-height: 50px; }
       .official-review-actions { display: grid; grid-template-columns: 1fr; }
       .official-review-actions a, .official-review-actions button { width: 100%; box-sizing: border-box; text-align: center; }
       .simulation-grid { grid-template-columns: 1fr; }
@@ -193,7 +225,7 @@
     <section class="report-section" aria-labelledby="report-title">
       <h4 id="report-title">環境部通報資料（快速選擇）</h4>
       <p class="report-hint">選擇後會自動產生說明文字；內容仍可自行修改。正式通報前請確認資料正確。</p>
-      <section class="voice-assist" aria-labelledby="voice-title"><h5 id="voice-title">一句話語音輔助（選用）</h5><p class="report-hint">例如：「斗六市附近有很重的畜牧堆肥味，持續半小時。」語音只用來產生分類建議，套用後仍可自行修改。</p><div class="report-actions"><button type="button" id="voiceStartButton">開始語音分析</button><button type="button" id="voiceStopButton" hidden>停止錄音</button></div><p id="voiceStatus" class="report-hint" role="status"></p><p>辨識文字：<span id="voiceTranscript">尚未錄音</span></p><p id="voiceAcousticCue" class="reporter-storage-note">聲音表達強度：尚未分析（僅輔助，不等同臭味程度）</p><p class="reporter-storage-note">啟用後，短音訊會一次性送到 Google Cloud Speech-to-Text 與 Vertex AI 分析，不保存音訊；不建議在語音中說姓名、電話或地址。</p></section>
+      <section class="voice-assist" aria-labelledby="voice-title"><div class="voice-assist-heading"><h5 id="voice-title">一句話語音輔助</h5><span class="voice-badge">選用功能</span></div><p class="voice-assist-lead">用一句話描述現場，快速產生環境部分類建議。</p><p class="voice-assist-example"><strong>例如：</strong>「斗六市附近有很重的畜牧堆肥味，持續半小時。」</p><p class="voice-assist-rule">語音只用來產生分類建議，套用後仍可自行修改。</p><div class="report-actions voice-actions"><button type="button" id="voiceStartButton">🎙 開始語音分析</button><button type="button" id="voiceStopButton" hidden>■ 停止錄音</button></div><p id="voiceStatus" class="report-hint" role="status"></p><p class="voice-transcript"><strong>辨識文字：</strong><span id="voiceTranscript">尚未錄音</span></p><p id="voiceAcousticCue" class="reporter-storage-note voice-acoustic-cue">聲音表達強度：尚未分析（僅輔助，不等同臭味程度）</p><p class="reporter-storage-note voice-privacy-note">啟用後，短音訊會一次性送到 Google Cloud Speech-to-Text 與 Vertex AI 分析，不保存音訊；不建議在語音中說姓名、電話或地址。</p></section>
       <div class="options">
         <label>臭味程度:</label>
         <label><input type="radio" name="smellLevel" value="1" required> 1(略有臭味)</label>
