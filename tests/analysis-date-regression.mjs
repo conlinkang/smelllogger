@@ -31,7 +31,7 @@ const records = [
 function startStaticServer() {
   const server = http.createServer((request, response) => {
     const requestPath = decodeURIComponent(String(request.url || '/').split('?')[0]);
-    const relativePath = requestPath === '/' ? '/analysis.html' : requestPath;
+    const relativePath = requestPath === '/' ? '/analysis_test.html' : requestPath;
     const filePath = path.resolve(root, `.${relativePath}`);
     if (!filePath.startsWith(root) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
       response.writeHead(404);
@@ -94,7 +94,7 @@ try {
     body: JSON.stringify({ records })
   }));
 
-  await page.goto(`${baseUrl}/analysis.html`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${baseUrl}/analysis_test.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.querySelector('#recordCount')?.textContent !== '--');
 
   assert.equal(await page.locator('#filterRegion').count(), 0, 'analysis must not show a region selector');

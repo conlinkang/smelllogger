@@ -78,7 +78,7 @@ async function openIndex(browser, state) {
   });
   const page = await context.newPage();
   await configureRoutes(page, state);
-  await page.goto(`${state.baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${state.baseUrl}/index_test.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.querySelector('#map')?.dataset.mapReady === 'true');
   await page.waitForTimeout(500);
   return { context, page };
