@@ -739,7 +739,7 @@
       getLocation();
     }
 
-    function selectGrid(grid, bounds) {
+    function selectGrid(grid, bounds, precisePosition) {
       document.getElementById('locationMessage').textContent = '';
       if (selectedGrid) {
         selectedGrid.setOptions({ fillColor: '#0000FF' });
@@ -750,23 +750,41 @@
 
       const centerLat = (bounds.north + bounds.south) / 2;
       const centerLng = (bounds.east + bounds.west) / 2;            
-      placeMarkerAndPanTo({lat: centerLat, lng: centerLng});
-      getAddress(centerLat, centerLng);
-      getWeather(centerLat, centerLng);
+      const selectedPosition = precisePosition || { lat: centerLat, lng: centerLng };
+      placeMarkerAndPanTo(selectedPosition);
+      getAddress(selectedPosition.lat, selectedPosition.lng);
+      getWeather(selectedPosition.lat, selectedPosition.lng);
+    }
+
+    function coordinateValue(value) {
+      const resolved = typeof value === 'function' ? value() : value;
+      return Number(resolved);
+    }
+
+    function updateDisplayedPosition(lat, lng) {
+      const display = document.getElementById('userLocation');
+      if (display && Number.isFinite(lat) && Number.isFinite(lng)) {
+        display.innerText = `您所在的位置: (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+      }
     }
 
     function placeMarkerAndPanTo(latLng) {
+      const lat = coordinateValue(latLng.lat);
+      const lng = coordinateValue(latLng.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const selectedPosition = { lat, lng };
       if (marker) {
-        marker.setPosition(latLng);
+        marker.setPosition(selectedPosition);
       } else {
         marker = new google.maps.Marker({
-          position: latLng,
+          position: selectedPosition,
           map: map
         });
       }
-      map.panTo(latLng);
-      currentPosition = latLng;
-      window.smellLoggerSelectedPosition = { lat: Number(latLng.lat), lng: Number(latLng.lng) };
+      map.panTo(selectedPosition);
+      currentPosition = selectedPosition;
+      window.smellLoggerSelectedPosition = selectedPosition;
+      updateDisplayedPosition(lat, lng);
       updateSubmissionChecklist();
     }
 
@@ -925,14 +943,13 @@
     function showPosition(position) {
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
-      document.getElementById('userLocation').innerText = `您所在的位置: (${userLat.toFixed(5)}, ${userLng.toFixed(5)})`;
+      updateDisplayedPosition(userLat, userLng);
 
       let withinRange = false;
       for (const {grid, bounds} of gridCells) {
         if (userLat >= bounds.south && userLat <= bounds.north && userLng >= bounds.west && userLng <= bounds.east) {
           withinRange = true;
-          selectGrid(grid, bounds);
-          getAddress(userLat, userLng);
+          selectGrid(grid, bounds, { lat: userLat, lng: userLng });
           updateSubmissionChecklist();
           break;
         }

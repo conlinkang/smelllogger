@@ -39,11 +39,17 @@ function mapsStub() {
   return `(() => {
     class MockMap { constructor(element) { element.dataset.mapReady = 'true'; } panTo() {} }
     class Marker { constructor() {} setPosition() {} }
-    class Rectangle { constructor() {} setOptions() {} }
+    window.__mapRectangles = [];
+    class Rectangle {
+      constructor(options) { this.options = options; this.listeners = {}; window.__mapRectangles.push(this); }
+      setOptions(options) { Object.assign(this.options, options); }
+    }
     class LatLng { constructor(lat, lng) { this.lat = () => lat; this.lng = () => lng; } }
     class Geocoder { geocode(options, callback) { callback([{ formatted_address: '雲林縣斗六市文化路100號3樓' }], 'OK'); } }
     class OverlayView { setMap() {} getPanes() { return { overlayLayer: document.createElement('div') }; } getProjection() { return { fromLatLngToDivPixel: () => ({ x: 0, y: 0 }) }; } }
-    window.google = { maps: { Map: MockMap, Marker, Rectangle, LatLng, Geocoder, OverlayView, event: { addListener() {} } } };
+    window.google = { maps: { Map: MockMap, Marker, Rectangle, LatLng, Geocoder, OverlayView, event: {
+      addListener(target, eventName, listener) { target.listeners[eventName] = listener; }
+    } } };
     window.__smellLoggerMapsReady();
   })();`;
 }
@@ -144,10 +150,30 @@ try {
   const noLocation = await openIndex(browser, noLocationState, { withLocation: false });
   assert.equal(await noLocation.page.locator('#submitButton').isDisabled(), true, 'submit button must be disabled before a location is selected');
   assert.equal(await noLocation.page.locator('#submitButton').innerText(), '請先完成定位');
+  const noLocationManualSelection = await noLocation.page.evaluate(() => {
+    const rectangle = window.__mapRectangles[0];
+    rectangle.listeners.click();
+    return {
+      displayed: document.getElementById('userLocation')?.textContent || '',
+      selected: window.smellLoggerSelectedPosition
+    };
+  });
+  assert.match(noLocationManualSelection.displayed, new RegExp(`${noLocationManualSelection.selected.lat.toFixed(5)}.*${noLocationManualSelection.selected.lng.toFixed(5)}`), 'manual map selection should update the displayed coordinates');
+  assert.equal(await noLocation.page.locator('#submitButton').isDisabled(), false, 'manual map selection should enable platform submission');
   await noLocation.context.close();
 
   const namedState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null, finalizeCalls: 0, captchaImage: proofCaptchaImage };
   const named = await openIndex(browser, namedState);
+  assert.match(await named.page.locator('#userLocation').innerText(), /23\.71318.*120\.50558/, 'GPS location should use the precise device coordinates');
+  const namedManualSelection = await named.page.evaluate(() => {
+    const rectangle = window.__mapRectangles[0];
+    rectangle.listeners.click();
+    return {
+      displayed: document.getElementById('userLocation')?.textContent || '',
+      selected: window.smellLoggerSelectedPosition
+    };
+  });
+  assert.match(namedManualSelection.displayed, new RegExp(`${namedManualSelection.selected.lat.toFixed(5)}.*${namedManualSelection.selected.lng.toFixed(5)}`), 'manual selection should replace the displayed GPS coordinates');
   assert.equal(await named.page.locator('#officialReviewLink').isVisible(), false, 'official form link should be hidden before a fallback is needed');
   const namedButtonBox = await named.page.locator('#submitButton').boundingBox();
   assert.ok(namedButtonBox && namedButtonBox.y >= 0, 'submit button must be rendered at the end of the form');
@@ -174,8 +200,8 @@ try {
   await named.page.waitForTimeout(700);
   assert.equal(namedState.preparePayload?.mode, 'prepare');
   assert.equal(namedState.preparePayload?.reporter?.name, 'integration-test');
-  assert.ok(Math.abs(namedState.preparePayload?.location?.lat - 23.713179) < 0.001, 'official latitude must come from the selected platform location');
-  assert.ok(Math.abs(namedState.preparePayload?.location?.lng - 120.50558) < 0.001, 'official longitude must come from the selected platform location');
+  assert.ok(Math.abs(namedState.preparePayload?.location?.lat - namedManualSelection.selected.lat) < 0.000001, 'official latitude must follow the manual map selection');
+  assert.ok(Math.abs(namedState.preparePayload?.location?.lng - namedManualSelection.selected.lng) < 0.000001, 'official longitude must follow the manual map selection');
   assert.equal(namedState.preparePayload?.reporter?.address, '雲林縣斗六市科福一街156號');
   assert.match(namedState.preparePayload?.complaint?.locationAddress || '', /文化路100號附近/);
   assert.equal(namedState.preparePayload?.complaint?.description, '平台通報說明端到端測試文字。');
