@@ -14,9 +14,11 @@ const indexOld = read('index_old.html');
 const analysisOld = read('analysis_old.html');
 const versionConfig = JSON.parse(read('assets/app-version.json'));
 
-assert.match(indexTest, /id="inputMethodPicker"/, 'test index should contain the staged input-method navigation');
-assert.match(indexTest, /id="voiceAssist"[^>]*hidden/, 'test index voice assistant should be collapsed by default');
-assert.doesNotMatch(index, /id="inputMethodPicker"/, 'staged test-only navigation must not reach production before approval');
+assert.equal(
+  index.replace("window.location.href = 'analysis.html';", "window.location.href = 'analysis_test.html';"),
+  indexTest,
+  'production index should match the verified test page except for its production navigation target'
+);
 assert.equal(
   analysis.replace('href="index.html"', 'href="index_test.html"'),
   analysisTest,
