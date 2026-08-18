@@ -148,6 +148,17 @@ const browser = await chromium.launch({ headless: true });
 try {
   const noLocationState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null };
   const noLocation = await openIndex(browser, noLocationState, { withLocation: false });
+  if (indexPage === 'index_test.html') {
+    assert.equal(await noLocation.page.locator('#voiceAssist').isVisible(), false, 'voice input should be collapsed by default');
+    await noLocation.page.locator('#voiceInputMode').click();
+    await noLocation.page.waitForFunction(() => !document.getElementById('voiceAssist')?.hidden && document.activeElement?.id === 'report-title');
+    assert.equal(await noLocation.page.locator('#voiceInputMode').getAttribute('aria-expanded'), 'true');
+    assert.equal(await noLocation.page.locator('#voiceAssist').isVisible(), true, 'voice input should expand after choosing voice mode');
+    await noLocation.page.locator('#textInputMode').click();
+    await noLocation.page.waitForFunction(() => document.getElementById('voiceAssist')?.hidden && document.activeElement?.id === 'smellLevelSection');
+    assert.equal(await noLocation.page.locator('#voiceAssist').isVisible(), false, 'text mode should collapse voice input');
+    assert.equal(await noLocation.page.locator('#textInputMode').getAttribute('aria-pressed'), 'true');
+  }
   assert.equal(await noLocation.page.locator('#submitButton').isDisabled(), true, 'submit button must be disabled before a location is selected');
   assert.equal(await noLocation.page.locator('#submitButton').innerText(), '請先完成定位');
   const noLocationManualSelection = await noLocation.page.evaluate(() => {
