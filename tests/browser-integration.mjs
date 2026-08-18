@@ -148,7 +148,7 @@ const browser = await chromium.launch({ headless: true });
 try {
   const noLocationState = { baseUrl, platformPayload: null, preparePayload: null, finalizePayload: null };
   const noLocation = await openIndex(browser, noLocationState, { withLocation: false });
-  if (indexPage === 'index_test.html') {
+  if (indexPage === 'index_test.html' || indexPage === 'index.html') {
     assert.equal(await noLocation.page.locator('#voiceAssist').isVisible(), false, 'voice input should be collapsed by default');
     await noLocation.page.locator('#voiceInputMode').click();
     await noLocation.page.waitForFunction(() => !document.getElementById('voiceAssist')?.hidden && document.activeElement?.id === 'report-title');
