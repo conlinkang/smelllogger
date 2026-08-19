@@ -44,10 +44,11 @@
     .controls > a { align-self: start; margin-top: 28px; }
     .controls .return-button { width: 100%; min-height: 42px; margin: 0; }
     .dashboard-summary { display: grid; gap: 14px; margin-bottom: 18px; }
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
     .kpi-card { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
     .kpi-card span { display: block; color: var(--muted); font-size: 0.9rem; }
     .kpi-card strong { display: block; margin-top: 4px; color: var(--accent-dark); font-size: 1.6rem; }
+    .kpi-card small { display: block; margin-top: 3px; color: var(--muted); font-size: .74rem; }
     #summaryText { margin: 0; color: var(--muted); }
     #trendChart { min-height: 0; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
     #trendChart svg { display: block; width: min(100%, 720px); height: auto; margin: 0 auto; }
@@ -200,6 +201,7 @@
       .controls > a { margin-top: 0; }
       .return-button { width: 100%; margin: 0; min-height: 44px; }
       .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+      .kpi-card:last-child { grid-column: 1 / -1; }
       .kpi-card { padding: 10px; }
       .kpi-card strong { font-size: 1.3rem; }
       #map { height: 300px; margin-bottom: 10px; }
@@ -214,7 +216,7 @@
 
   <script src="assets/js/app-config.js?v=20260809-2"></script>
   <script src="assets/js/date-utils.js"></script>
-  <script src="assets/js/analysis-ui.js?v=20260809-3"></script>
+  <script src="assets/js/analysis-ui.js?v=20260820-1"></script>
   <script src="assets/js/map-loader.js?v=20260809" defer></script>
 </head>
 <body>
@@ -252,6 +254,7 @@
       <div class="kpi-card"><span>平均臭味程度</span><strong id="averageLevel">--</strong></div>
       <div class="kpi-card"><span>最高程度</span><strong id="peakLevel">--</strong></div>
       <div class="kpi-card"><span>最高發生時間</span><strong id="peakTime">--</strong></div>
+      <div class="kpi-card"><span>已送出環境部</span><strong id="officialSubmissionCount">--</strong><small>含待信箱認證</small></div>
     </div>
     <p id="summaryText">正在準備分析資料…</p>
     <div id="trendChart" aria-label="臭味程度時間趨勢圖"></div>
