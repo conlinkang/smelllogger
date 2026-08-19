@@ -241,7 +241,7 @@ try {
   assert.equal(namedState.finalizePayload?.sessionId, 'integration_session_abcdefghijklmnopqrstuvwxyz123456');
   assert.equal(namedState.finalizePayload?.captchaText, '9N9PF');
   assert.equal(namedState.finalizePayload?.confirmationText, '我確認以本人資料正式陳情');
-  if (indexPage === 'index_test.html') {
+  if (indexPage === 'index_test.html' || indexPage === 'index.html') {
     await named.page.waitForFunction(() => document.querySelector('#message')?.textContent?.includes('分析紀錄'));
     assert.equal(namedState.officialStatusPayload?.recordId, namedState.platformPayload?.recordId, 'official status update must target the original platform record');
     assert.equal(namedState.officialStatusPayload?.status, 'email_verification_required', 'email verification stage should count as sent to MOENV');

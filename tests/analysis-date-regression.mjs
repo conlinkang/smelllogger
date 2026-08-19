@@ -132,7 +132,7 @@ try {
   await page.waitForTimeout(150);
   assert.equal(await page.locator('#filterDate').inputValue(), '2024-10', '2024-10 must be selectable in monthly analysis');
   assert.equal(await page.locator('#recordCount').textContent(), '2', '2024-10 monthly records should be displayed');
-  if (analysisPage === 'analysis_test.html') {
+  if (analysisPage === 'analysis_test.html' || analysisPage === 'analysis.html') {
     assert.equal(await page.locator('#officialSubmissionCount').textContent(), '1', 'analysis should count records sent to MOENV within the active filters');
   }
   assert.equal(await page.locator('#trendChart svg').count(), 1, '2024-10 should render a trend chart');
@@ -150,7 +150,7 @@ try {
   await page.locator('#minSmellLevel').selectOption('5');
   await page.waitForFunction(() => document.querySelector('#recordCount')?.textContent === '1');
   assert.equal(await page.locator('#recordCount').textContent(), '1', 'level 5 filter should hide the level 4 record');
-  if (analysisPage === 'analysis_test.html') {
+  if (analysisPage === 'analysis_test.html' || analysisPage === 'analysis.html') {
     assert.equal(await page.locator('#officialSubmissionCount').textContent(), '1', 'official submission count should follow the smell-level filter');
   }
   assert.equal(await page.locator('#minSmellLevelHint').innerText(), '選 5 = 僅顯示 5 級紀錄');
