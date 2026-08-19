@@ -79,16 +79,20 @@
 
   window.renderAnalysisSummary = function (records) {
     const valid = records.filter(record => Number.isFinite(Number(record.臭味程度)));
+    const officialSubmissionCount = valid.filter(record => ['submitted', 'email_verification_required'].includes(String(record.環境部送出狀態 || ''))).length;
     const average = valid.length ? valid.reduce((sum, record) => sum + Number(record.臭味程度), 0) / valid.length : null;
     const peak = valid.reduce((best, record) => !best || Number(record.臭味程度) > Number(best.臭味程度) ? record : best, null);
     const peakTime = peak ? new Date(peak.聞到的時間).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false }) : '--';
+    const showsOfficialSubmissionCount = Boolean(document.getElementById('officialSubmissionCount'));
     setText('recordCount', String(valid.length));
+    setText('officialSubmissionCount', String(officialSubmissionCount));
     setText('averageLevel', average === null ? '--' : average.toFixed(1));
     setText('peakLevel', peak ? `${peak.臭味程度} 級` : '--');
     setText('peakTime', peak ? peakTime : '--');
     const analysisMode = document.getElementById('analysisType')?.value === 'month' ? 'month' : 'day';
     const trendUnit = analysisMode === 'month' ? '每日' : '每小時';
-    setText('summaryText', valid.length ? `目前顯示 ${valid.length} 筆紀錄；趨勢圖以台灣時間${trendUnit}平均臭味程度呈現。` : '請調整日期或最低臭味程度篩選條件。');
+    const officialSummary = showsOfficialSubmissionCount ? `，其中 ${officialSubmissionCount} 筆已送出環境部表單` : '';
+    setText('summaryText', valid.length ? `目前顯示 ${valid.length} 筆紀錄${officialSummary}；趨勢圖以台灣時間${trendUnit}平均臭味程度呈現。` : '請調整日期或最低臭味程度篩選條件。');
     drawTrend(valid);
   };
 })();
