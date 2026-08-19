@@ -286,6 +286,14 @@ const fakeSheet = {
     return {
       getValues: () => Array.from({ length: rowCount }, (_, rowOffset) =>
         Array.from({ length: columnCount }, (_, columnOffset) => fakeRows[row - 1 + rowOffset][column - 1 + columnOffset])),
+      createTextFinder: value => ({
+        matchEntireCell() { return this; },
+        findNext: () => {
+          const matchIndex = fakeRows.slice(row - 1, row - 1 + rowCount)
+            .findIndex(candidate => String(candidate[column - 1] || '') === value);
+          return matchIndex < 0 ? null : { getRow: () => row + matchIndex };
+        }
+      }),
       setValue: value => { fakeRows[row - 1][column - 1] = value; }
     };
   }

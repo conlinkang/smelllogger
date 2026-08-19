@@ -54,7 +54,8 @@
     const config = window.APP_CONFIG || {};
     if (!config.recordEndpoint) throw new Error('Record endpoint is not configured');
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), config.requestTimeoutMs || 15000);
+    const timeoutMs = config.officialSubmissionTimeoutMs || Math.max(config.requestTimeoutMs || 15000, 60000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(config.recordEndpoint, {
         method: 'POST',

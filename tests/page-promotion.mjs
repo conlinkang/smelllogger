@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +14,10 @@ const analysisTest = read('analysis_test.html');
 const indexOld = read('index_old.html');
 const analysisOld = read('analysis_old.html');
 const versionConfig = JSON.parse(read('assets/app-version.json'));
+
+const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
+assert.equal(sha256(index), '92c47bbfebb88e7e15ae9ad739ff7a2f2ce566240d6f596f9d92ec8dde7d6f7d', 'production index must remain unchanged during test-first development');
+assert.equal(sha256(analysis), 'b2b419ed16ddd8f5d1554964666e6c0c13ee4fa26a4f67ebca68ca938aee64e0', 'production analysis must remain unchanged during test-first development');
 
 assert.match(indexTest, /currentRecordId = createRecordId\(\)/, 'test index should assign a record ID before platform submission');
 assert.match(indexTest, /recordOfficialSubmissionOutcome\(result\.status\)/, 'test index should write back successful official submission status');

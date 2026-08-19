@@ -133,15 +133,12 @@ function updateOfficialSubmission_(payload, submittedAt) {
   const rowCount = sheet.getLastRow() - 1;
   if (rowCount < 1) throw new Error('Record not found');
 
-  const ids = sheet.getRange(2, idColumn, rowCount, 1).getValues();
-  let rowNumber = 0;
-  for (let index = ids.length - 1; index >= 0; index -= 1) {
-    if (String(ids[index][0] || '') === recordId) {
-      rowNumber = index + 2;
-      break;
-    }
-  }
-  if (!rowNumber) throw new Error('Record not found');
+  const match = sheet.getRange(2, idColumn, rowCount, 1)
+    .createTextFinder(recordId)
+    .matchEntireCell(true)
+    .findNext();
+  if (!match) throw new Error('Record not found');
+  const rowNumber = match.getRow();
 
   sheet.getRange(rowNumber, statusColumn).setValue(status);
   sheet.getRange(rowNumber, timeColumn).setValue(submittedAt);
