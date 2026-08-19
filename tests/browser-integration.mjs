@@ -67,7 +67,9 @@ async function configureRoutes(page, state) {
   }));
   await page.route('**/script.google.com/**', route => {
     if (route.request().method() === 'POST') {
-      state.platformPayload = JSON.parse(route.request().postData() || '{}');
+      const payload = JSON.parse(route.request().postData() || '{}');
+      if (payload.action === 'official-submission-status') state.officialStatusPayload = payload;
+      else state.platformPayload = payload;
       return route.fulfill({ status: 200, contentType: 'text/plain', body: 'ok' });
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ records: [] }) });
@@ -239,6 +241,12 @@ try {
   assert.equal(namedState.finalizePayload?.sessionId, 'integration_session_abcdefghijklmnopqrstuvwxyz123456');
   assert.equal(namedState.finalizePayload?.captchaText, '9N9PF');
   assert.equal(namedState.finalizePayload?.confirmationText, '我確認以本人資料正式陳情');
+  if (indexPage === 'index_test.html') {
+    await named.page.waitForFunction(() => document.querySelector('#message')?.textContent?.includes('分析紀錄'));
+    assert.equal(namedState.officialStatusPayload?.recordId, namedState.platformPayload?.recordId, 'official status update must target the original platform record');
+    assert.equal(namedState.officialStatusPayload?.status, 'email_verification_required', 'email verification stage should count as sent to MOENV');
+    assert.match(namedState.platformPayload?.recordId || '', /^[A-Za-z0-9_-]{16,80}$/);
+  }
   assert.match(await named.page.locator('#message').innerText(), /收件匣.*垃圾郵件.*完成認證/s);
   assert.match(await named.page.locator('#officialCaptchaStatus').innerText(), /尚未完成報案.*收件匣.*垃圾郵件.*案件編號/s);
   if (proofDir) await named.page.locator('#officialCaptchaPanel').screenshot({ path: path.join(proofDir, 'mobile-email-verification.png') });

@@ -50,6 +50,28 @@
     }
   };
 
+  window.updateOfficialSubmissionStatus = async function (recordId, status) {
+    const config = window.APP_CONFIG || {};
+    if (!config.recordEndpoint) throw new Error('Record endpoint is not configured');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), config.requestTimeoutMs || 15000);
+    try {
+      const response = await fetch(config.recordEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify({ action: 'official-submission-status', recordId, status }),
+        mode: config.recordMode || 'no-cors',
+        signal: controller.signal
+      });
+      return {
+        responseType: response.type,
+        confirmed: response.type !== 'opaque' && response.ok === true
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
   window.submitOfficialComplaint = async function (packet) {
     const config = window.APP_CONFIG || {};
     return postOfficial(config.officialSubmissionEndpoint, { ...packet, mode: packet.mode || config.officialSubmissionMode || 'prepare' });

@@ -421,7 +421,7 @@
   <script src="assets/js/app-config.js?v=20260809-5"></script>
   <script src="assets/js/date-utils.js"></script>
   <script src="assets/js/weather-client.js"></script>
-  <script src="assets/js/submission-client.js?v=20260809-3"></script>
+  <script src="assets/js/submission-client.js?v=20260819-1"></script>
   <script src="assets/js/map-loader.js?v=20260809" defer></script>
   <script src="assets/js/report-form.js?v=20260809-10" defer></script>
   <script src="assets/js/voice-assistant.js?v=20260809-1" defer></script>
@@ -516,12 +516,29 @@
     let isSubmitted = false;
     let isSubmitting = false;
     let isFinalizingOfficial = false;
+    let currentRecordId = '';
     let officialCaptchaSessionId = '';
     let officialCaptchaExpiresAt = 0;
     let officialCaptchaTimer = null;
     const arrowOverlays = [];
     const gridCells = [];
     const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心座標
+
+    function createRecordId() {
+      if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+      return `record_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 14)}`;
+    }
+
+    async function recordOfficialSubmissionOutcome(status) {
+      if (!currentRecordId || typeof window.updateOfficialSubmissionStatus !== 'function') return false;
+      try {
+        await window.updateOfficialSubmissionStatus(currentRecordId, status);
+        return true;
+      } catch (error) {
+        console.warn('環境部送出狀態未能寫回平台紀錄：', error);
+        return false;
+      }
+    }
 
     function updateSubmissionChecklist() {
       const setItem = (id, ready, readyText, pendingText) => {
@@ -712,15 +729,21 @@
         officialCaptchaSessionId = '';
         clearOfficialCaptchaTimer();
         if (result.status === 'submitted') {
+          const statusRecorded = await recordOfficialSubmissionOutcome(result.status);
           if (status) status.textContent = '環境部陳情已完成送出。';
           if (button) button.textContent = '環境部已送出';
-          document.getElementById('message').textContent = '平台紀錄與環境部陳情均已送出。';
+          document.getElementById('message').textContent = statusRecorded
+            ? '平台紀錄與環境部陳情均已送出，環境部送出狀態已寫入分析紀錄。'
+            : '平台紀錄與環境部陳情均已送出；但環境部送出狀態未能寫回分析紀錄。';
           return;
         }
         if (result.status === 'email_verification_required') {
+          const statusRecorded = await recordOfficialSubmissionOutcome(result.status);
           if (status) status.textContent = '環境部表單已送出。您尚未完成報案，請至信箱收取認證信；若收件匣沒有看到，請檢查垃圾郵件。請由信中連結完成確認，直到取得案件編號後才算完成報案。';
           if (button) button.textContent = '已送出，待信箱認證';
-          document.getElementById('message').textContent = '平台紀錄已送出；環境部表單已寄發認證信，若收件匣沒有看到請檢查垃圾郵件，並由信中連結完成認證。';
+          document.getElementById('message').textContent = statusRecorded
+            ? '平台紀錄已送出；環境部表單送出狀態已寫入分析紀錄。請至信箱收取認證信，若收件匣沒有看到請檢查垃圾郵件，並由信中連結完成認證。'
+            : '平台紀錄已送出；環境部表單已寄發認證信，但送出狀態未能寫回分析紀錄。請至信箱完成認證。';
           return;
         }
         setOfficialCaptchaPanelVisible(false);
@@ -930,7 +953,9 @@
       updateSubmissionChecklist();
 
       const submitButton = document.getElementById('submitButton');
+      currentRecordId = createRecordId();
       const data = {
+        recordId: currentRecordId,
         lat: currentPosition.lat,
         lng: currentPosition.lng,
         smellLevel: parseInt(smellLevel, 10),

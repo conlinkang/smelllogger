@@ -19,7 +19,8 @@ const field = {
   latitude: '\u7def\u5ea6',
   longitude: '\u7d93\u5ea6',
   time: '\u805e\u5230\u7684\u6642\u9593',
-  level: '\u81ed\u5473\u7a0b\u5ea6'
+  level: '\u81ed\u5473\u7a0b\u5ea6',
+  officialStatus: '\u74b0\u5883\u90e8\u9001\u51fa\u72c0\u614b'
 };
 
 const records = [
@@ -27,7 +28,7 @@ const records = [
   { [field.latitude]: 23.714, [field.longitude]: 120.506, [field.time]: '2026-08-02T10:00:00+08:00', [field.level]: 3 },
   { [field.latitude]: 23.715, [field.longitude]: 120.507, [field.time]: '2026-07-20T10:00:00+08:00', [field.level]: 2 },
   { [field.latitude]: 23.716, [field.longitude]: 120.508, [field.time]: '2026-07-19T10:00:00+08:00', [field.level]: 5 },
-  { [field.latitude]: 23.717, [field.longitude]: 120.509, [field.time]: '2024-10-07T13:18:00+08:00', [field.level]: 5 },
+  { [field.latitude]: 23.717, [field.longitude]: 120.509, [field.time]: '2024-10-07T13:18:00+08:00', [field.level]: 5, [field.officialStatus]: 'email_verification_required' },
   { [field.latitude]: 23.718, [field.longitude]: 120.510, [field.time]: '2024-10-30T05:17:00+08:00', [field.level]: 4 }
 ];
 
@@ -131,6 +132,9 @@ try {
   await page.waitForTimeout(150);
   assert.equal(await page.locator('#filterDate').inputValue(), '2024-10', '2024-10 must be selectable in monthly analysis');
   assert.equal(await page.locator('#recordCount').textContent(), '2', '2024-10 monthly records should be displayed');
+  if (analysisPage === 'analysis_test.html') {
+    assert.equal(await page.locator('#officialSubmissionCount').textContent(), '1', 'analysis should count records sent to MOENV within the active filters');
+  }
   assert.equal(await page.locator('#trendChart svg').count(), 1, '2024-10 should render a trend chart');
   assert.equal(await page.locator('#trendChart').getAttribute('data-granularity'), 'day', 'monthly trend should aggregate by day');
   assert.match(await page.locator('#summaryText').innerText(), /每日平均/);
@@ -146,6 +150,9 @@ try {
   await page.locator('#minSmellLevel').selectOption('5');
   await page.waitForFunction(() => document.querySelector('#recordCount')?.textContent === '1');
   assert.equal(await page.locator('#recordCount').textContent(), '1', 'level 5 filter should hide the level 4 record');
+  if (analysisPage === 'analysis_test.html') {
+    assert.equal(await page.locator('#officialSubmissionCount').textContent(), '1', 'official submission count should follow the smell-level filter');
+  }
   assert.equal(await page.locator('#minSmellLevelHint').innerText(), '選 5 = 僅顯示 5 級紀錄');
   await page.locator('#minSmellLevel').selectOption('1');
   await page.waitForFunction(() => document.querySelector('#recordCount')?.textContent === '2');

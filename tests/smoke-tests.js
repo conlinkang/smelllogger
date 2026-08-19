@@ -175,6 +175,7 @@ assert.match(meteoRequests[0], /weather_code/);
 
 const summaryElements = {
   recordCount: { textContent: '' },
+  officialSubmissionCount: { textContent: '' },
   averageLevel: { textContent: '' },
   peakLevel: { textContent: '' },
   peakTime: { textContent: '' },
@@ -198,32 +199,44 @@ const summarySandbox = {
 };
 runScript('assets/js/analysis-ui.js', summarySandbox);
 summarySandbox.window.renderAnalysisSummary([
-  { 聞到的時間: '2026-08-09T10:15:00+08:00', 臭味程度: 2 },
+  { 聞到的時間: '2026-08-09T10:15:00+08:00', 臭味程度: 2, 環境部送出狀態: 'email_verification_required' },
   { 聞到的時間: '2026-08-09T10:45:00+08:00', 臭味程度: 4 }
 ]);
 assert.equal(summaryElements.recordCount.textContent, '2');
+assert.equal(summaryElements.officialSubmissionCount.textContent, '1');
 assert.equal(summaryElements.averageLevel.textContent, '3.0');
 assert.equal(summaryElements.peakLevel.textContent, '4 級');
 assert.ok(summaryElements.trendChart.children.length > 0);
 
+const submissionRequests = [];
 const submissionSandbox = {
   window: { APP_CONFIG: { recordEndpoint: 'https://example.test/record', recordMode: 'no-cors', requestTimeoutMs: 1000 } },
   AbortController,
   setTimeout,
   clearTimeout,
-  fetch: async () => ({ type: 'opaque', ok: false }),
+  fetch: async (url, options) => {
+    submissionRequests.push({ url, body: JSON.parse(options.body) });
+    return { type: 'opaque', ok: false };
+  },
   console
 };
 runScript('assets/js/submission-client.js', submissionSandbox);
 const submissionResult = await submissionSandbox.window.submitRecord({ complaint: { description: 'test' } });
 assert.equal(submissionResult.confirmed, false);
 assert.equal(submissionResult.responseType, 'opaque');
+await submissionSandbox.window.updateOfficialSubmissionStatus('record_abcdefghijklmnop', 'email_verification_required');
+assert.deepEqual(submissionRequests[1].body, {
+  action: 'official-submission-status',
+  recordId: 'record_abcdefghijklmnop',
+  status: 'email_verification_required'
+});
 const officialNotConfigured = await submissionSandbox.window.submitOfficialComplaint({ reporter: {} });
 assert.equal(officialNotConfigured.status, 'not_configured');
 
 const backendSandbox = { console };
 runScript('apps-script/Code.gs', backendSandbox);
 const backendPayload = {
+  recordId: 'record_abcdefghijklmnop',
   lat: 23.7,
   lng: 120.5,
   smellLevel: 4,
@@ -245,6 +258,8 @@ const backendPayload = {
 backendSandbox.validatePayload_(backendPayload);
 const backendRecord = backendSandbox.buildRecord_(backendPayload, new Date('2026-08-09T06:30:00.000Z'));
 assert.equal(backendRecord['臭味程度'], 4);
+assert.equal(backendRecord['紀錄ID'], 'record_abcdefghijklmnop');
+assert.equal(backendRecord['環境部送出狀態'], '');
 assert.doesNotMatch(backendRecord['通報資料JSON'], /個資|0900000000/);
 const backendHeaders = Object.keys(backendRecord);
 const backendPublic = backendSandbox.publicRecordFromRow_(backendHeaders, backendHeaders.map(header => backendRecord[header]));
@@ -253,8 +268,36 @@ assert.equal(backendPublic.complaint.locationCounty, '雲林縣');
 assert.equal(backendPublic.complaint.locationTown, '斗六市');
 assert.equal(backendPublic.complaint.moenvCause, 'fertilizeCompost');
 assert.equal(backendPublic.complaint.officialSubmissionConfirmed, true);
+assert.equal(backendPublic['紀錄ID'], undefined);
 assert.equal(backendPublic.reporter, undefined);
 assert.equal(backendPublic['通報資料JSON'], undefined);
+const backendSentRecord = { ...backendRecord, '環境部送出狀態': 'email_verification_required', '環境部送出時間': new Date('2026-08-09T06:35:00.000Z') };
+const backendSentPublic = backendSandbox.publicRecordFromRow_(backendHeaders, backendHeaders.map(header => backendSentRecord[header]));
+assert.equal(backendSentPublic['環境部送出狀態'], 'email_verification_required');
+assert.equal(new Date(backendSentPublic['環境部送出時間']).toISOString(), '2026-08-09T06:35:00.000Z');
+assert.throws(() => backendSandbox.normaliseRecordId_('short', true), /Invalid recordId/);
+
+const fakeHeaders = backendHeaders.slice();
+const fakeRows = [fakeHeaders, fakeHeaders.map(header => backendRecord[header])];
+const fakeSheet = {
+  getLastRow: () => fakeRows.length,
+  getLastColumn: () => fakeHeaders.length,
+  getRange(row, column, rowCount = 1, columnCount = 1) {
+    return {
+      getValues: () => Array.from({ length: rowCount }, (_, rowOffset) =>
+        Array.from({ length: columnCount }, (_, columnOffset) => fakeRows[row - 1 + rowOffset][column - 1 + columnOffset])),
+      setValue: value => { fakeRows[row - 1][column - 1] = value; }
+    };
+  }
+};
+backendSandbox.getSheet_ = () => fakeSheet;
+const updateResult = backendSandbox.updateOfficialSubmission_({
+  recordId: 'record_abcdefghijklmnop',
+  status: 'email_verification_required'
+}, new Date('2026-08-09T06:35:00.000Z'));
+assert.equal(updateResult.updated, true);
+assert.equal(fakeRows[1][fakeHeaders.indexOf('環境部送出狀態')], 'email_verification_required');
+assert.equal(fakeRows[1][fakeHeaders.indexOf('環境部送出時間')].toISOString(), '2026-08-09T06:35:00.000Z');
 const noConsentPayload = { ...backendPayload, complaint: { ...backendPayload.complaint, reporterConsent: false } };
 const noConsentRecord = backendSandbox.buildRecord_(noConsentPayload, new Date('2026-08-09T06:30:00.000Z'));
 assert.doesNotMatch(noConsentRecord['通報資料JSON'], /個資/);

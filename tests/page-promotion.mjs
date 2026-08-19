@@ -14,16 +14,11 @@ const indexOld = read('index_old.html');
 const analysisOld = read('analysis_old.html');
 const versionConfig = JSON.parse(read('assets/app-version.json'));
 
-assert.equal(
-  index.replace("window.location.href = 'analysis.html';", "window.location.href = 'analysis_test.html';"),
-  indexTest,
-  'production index should match the verified test page except for its production navigation target'
-);
-assert.equal(
-  analysis.replace('href="index.html"', 'href="index_test.html"'),
-  analysisTest,
-  'production analysis should match the verified test page except for its production navigation target'
-);
+assert.match(indexTest, /currentRecordId = createRecordId\(\)/, 'test index should assign a record ID before platform submission');
+assert.match(indexTest, /recordOfficialSubmissionOutcome\(result\.status\)/, 'test index should write back successful official submission status');
+assert.doesNotMatch(index, /currentRecordId = createRecordId\(\)/, 'production index must remain unchanged during test-first development');
+assert.match(analysisTest, /id="officialSubmissionCount"/, 'test analysis should show the official submission count');
+assert.doesNotMatch(analysis, /id="officialSubmissionCount"/, 'production analysis must remain unchanged during test-first development');
 
 assert.match(index, /window\.location\.href = 'analysis\.html'/);
 assert.doesNotMatch(index, /window\.location\.href = 'analysis_test\.html'/);

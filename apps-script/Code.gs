@@ -13,6 +13,7 @@ const CONFIG = Object.freeze({
 });
 
 const HEADERS = [
+  '紀錄ID',
   '紀錄時間',
   '緯度',
   '經度',
@@ -28,14 +29,20 @@ const HEADERS = [
   '嫌疑位置風向',
   'IP',
   '備註',
-  '通報資料JSON'
+  '通報資料JSON',
+  '環境部送出狀態',
+  '環境部送出時間'
 ];
 
-const PRIVATE_HEADERS = new Set(['IP', '備註', '通報資料JSON']);
+const PRIVATE_HEADERS = new Set(['紀錄ID', 'IP', '備註', '通報資料JSON']);
+const OFFICIAL_SENT_STATUSES = new Set(['submitted', 'email_verification_required']);
 
 function doPost(event) {
   try {
     const payload = parsePayload_(event);
+    if (payload.action === 'official-submission-status') {
+      return jsonResponse_(updateOfficialSubmission_(payload, new Date()));
+    }
     validatePayload_(payload);
     const sheet = getSheet_();
     const headers = ensureHeaders_(sheet);
@@ -89,6 +96,7 @@ function buildRecord_(payload, recordedAt) {
   const suspectedWeather = payload.weatherInfo_suspect || {};
   const complaint = complaintForStorage_(payload.complaint || {});
   return {
+    '紀錄ID': normaliseRecordId_(payload.recordId, false),
     '紀錄時間': recordedAt,
     '緯度': Number(payload.lat),
     '經度': Number(payload.lng),
@@ -106,8 +114,45 @@ function buildRecord_(payload, recordedAt) {
     'IP': '',
     // Keep a readable legacy note while the JSON column is the source of truth.
     '備註': valueOrBlank_(complaint.description),
-    '通報資料JSON': JSON.stringify(complaint)
+    '通報資料JSON': JSON.stringify(complaint),
+    '環境部送出狀態': '',
+    '環境部送出時間': ''
   };
+}
+
+function updateOfficialSubmission_(payload, submittedAt) {
+  const recordId = normaliseRecordId_(payload.recordId, true);
+  const status = String(payload.status || '').trim();
+  if (!OFFICIAL_SENT_STATUSES.has(status)) throw new Error('Unsupported official submission status');
+
+  const sheet = getSheet_();
+  const headers = ensureHeaders_(sheet);
+  const idColumn = headers.indexOf('紀錄ID') + 1;
+  const statusColumn = headers.indexOf('環境部送出狀態') + 1;
+  const timeColumn = headers.indexOf('環境部送出時間') + 1;
+  const rowCount = sheet.getLastRow() - 1;
+  if (rowCount < 1) throw new Error('Record not found');
+
+  const ids = sheet.getRange(2, idColumn, rowCount, 1).getValues();
+  let rowNumber = 0;
+  for (let index = ids.length - 1; index >= 0; index -= 1) {
+    if (String(ids[index][0] || '') === recordId) {
+      rowNumber = index + 2;
+      break;
+    }
+  }
+  if (!rowNumber) throw new Error('Record not found');
+
+  sheet.getRange(rowNumber, statusColumn).setValue(status);
+  sheet.getRange(rowNumber, timeColumn).setValue(submittedAt);
+  return { ok: true, updated: true, status };
+}
+
+function normaliseRecordId_(value, required) {
+  const recordId = String(value || '').trim();
+  if (!recordId && !required) return '';
+  if (!/^[A-Za-z0-9_-]{16,80}$/.test(recordId)) throw new Error('Invalid recordId');
+  return recordId;
 }
 
 function complaintForStorage_(complaint) {
