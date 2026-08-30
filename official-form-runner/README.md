@@ -26,6 +26,8 @@ npm --prefix tools run test:browser
 ## Cloud Run 環境變數
 
 - `ALLOWED_ORIGIN`：允許的前端來源，例如 `https://conlinkang.github.io`。本測試版本不開放 localhost 來源。
+- `RECORD_UPSTREAM_URL`：既有 Apps Script Web App `/exec` 網址。`/record` 會記錄完整來源 IP 後轉送，並驗證 Apps Script 回覆。
+- `RECORD_PROXY_TIMEOUT_MS`：平台紀錄轉送逾時，預設 20000 毫秒。
 - `REQUIRED_COUNTY`：服務限定的縣市，預設為 `雲林縣`。
 - `OFFICIAL_SUBMIT_ENABLED`：正式送出總開關；目前正式環境為 `true`，只有精確值 `true` 才會啟用。
 - `RUNNER_TOKEN`：可選的服務端 token；若設定，請求必須帶 `X-Runner-Token`。不可把它放在公開 GitHub Pages 前端。
@@ -46,6 +48,7 @@ Cloud Run 應使用專用服務帳號，並只授予 Speech-to-Text 用戶端與
 - `GET /health`：回傳服務狀態、限定縣市、預設模式與語音服務是否已設定；`/healthz` 保留供本機相容，但公開 Cloud Run URL 使用 `/health`。
 - `POST /prepare`：填到環境部最後驗證頁，回傳短效 `sessionId`、CAPTCHA 圖片與到期時間。瀏覽器工作階段只存在 Cloud Run 記憶體。
 - `POST /finalize`：接收 `sessionId`、使用者輸入的 CAPTCHA 與固定確認字串，在同一工作階段完成最後送出。驗證碼錯誤時回傳更新圖片與剩餘次數；最多 3 次。
+- `POST /record`：取得完整來源 IPv4／IPv6，轉送平台紀錄或環境部狀態至 Apps Script，只有收到 `ok:true` 才回報成功。
 - `POST /submit`：舊版相容端點；請求結束即關閉瀏覽器，不支援 CAPTCHA 接力。
 - `POST /analyze-voice`：接收一次性 `audioBase64` 與 `mimeType`，回傳 `transcript` 和受限於既有前端 enum 的 `analysis`。不儲存音檔、逐字稿或個資。
 

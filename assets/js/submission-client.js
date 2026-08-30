@@ -1,4 +1,33 @@
 (function () {
+  async function postRecord(payload) {
+    const config = window.APP_CONFIG || {};
+    if (!config.recordEndpoint) throw new Error('Record endpoint is not configured');
+    const controller = new AbortController();
+    const timeoutMs = config.officialSubmissionTimeoutMs || Math.max(config.requestTimeoutMs || 15000, 60000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(config.recordEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        mode: 'cors',
+        signal: controller.signal
+      });
+      let body = {};
+      try { body = await response.json(); } catch (error) { /* handled below */ }
+      if (!response.ok || body.ok !== true) {
+        const requestError = new Error(body.error || `Record service returned ${response.status}`);
+        requestError.code = body.code || 'RECORD_WRITE_FAILED';
+        requestError.status = response.status;
+        requestError.result = body;
+        throw requestError;
+      }
+      return { ...body, responseType: response.type, confirmed: true };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async function postOfficial(endpoint, payload) {
     const config = window.APP_CONFIG || {};
     if (!endpoint) return { status: 'not_configured' };
@@ -28,49 +57,11 @@
   }
 
   window.submitRecord = async function (payload) {
-    const config = window.APP_CONFIG || {};
-    if (!config.recordEndpoint) throw new Error('Record endpoint is not configured');
-    const controller = new AbortController();
-    const timeoutMs = config.officialSubmissionTimeoutMs || Math.max(config.requestTimeoutMs || 15000, 60000);
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(config.recordEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body: JSON.stringify(payload),
-        mode: config.recordMode || 'no-cors',
-        signal: controller.signal
-      });
-      return {
-        responseType: response.type,
-        confirmed: response.type !== 'opaque' && response.ok === true
-      };
-    } finally {
-      clearTimeout(timeout);
-    }
+    return postRecord(payload);
   };
 
   window.updateOfficialSubmissionStatus = async function (recordId, status) {
-    const config = window.APP_CONFIG || {};
-    if (!config.recordEndpoint) throw new Error('Record endpoint is not configured');
-    const controller = new AbortController();
-    const timeoutMs = config.officialSubmissionTimeoutMs || Math.max(config.requestTimeoutMs || 15000, 60000);
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(config.recordEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body: JSON.stringify({ action: 'official-submission-status', recordId, status }),
-        mode: config.recordMode || 'no-cors',
-        signal: controller.signal
-      });
-      return {
-        responseType: response.type,
-        confirmed: response.type !== 'opaque' && response.ok === true
-      };
-    } finally {
-      clearTimeout(timeout);
-    }
+    return postRecord({ action: 'official-submission-status', recordId, status });
   };
 
   window.submitOfficialComplaint = async function (packet) {

@@ -110,8 +110,9 @@ function buildRecord_(payload, recordedAt) {
     '嫌疑位置溫度': valueOrBlank_(suspectedWeather.temperature),
     '嫌疑位置風速': valueOrBlank_(suspectedWeather.windSpeed),
     '嫌疑位置風向': valueOrBlank_(suspectedWeather.windDirection),
-    // IP is intentionally not collected by the first-version frontend.
-    'IP': '',
+    // Cloud Run records the complete source IPv4/IPv6 address. This field is
+    // private and is excluded from the public analysis response.
+    'IP': normaliseIp_(payload.ip),
     // Keep a readable legacy note while the JSON column is the source of truth.
     '備註': valueOrBlank_(complaint.description),
     '通報資料JSON': JSON.stringify(complaint),
@@ -150,6 +151,17 @@ function normaliseRecordId_(value, required) {
   if (!recordId && !required) return '';
   if (!/^[A-Za-z0-9_-]{16,80}$/.test(recordId)) throw new Error('Invalid recordId');
   return recordId;
+}
+
+function normaliseIp_(value) {
+  let ip = String(value || '').trim();
+  if (/^::ffff:/i.test(ip)) ip = ip.slice(7);
+  if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+    const parts = ip.split('.').map(Number);
+    return parts.every(part => Number.isInteger(part) && part >= 0 && part <= 255) ? ip : '';
+  }
+  if (ip.indexOf(':') >= 0 && /^[0-9a-f:]+$/i.test(ip) && ip.length <= 45) return ip;
+  return '';
 }
 
 function complaintForStorage_(complaint) {

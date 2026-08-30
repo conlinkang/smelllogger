@@ -210,20 +210,20 @@ assert.ok(summaryElements.trendChart.children.length > 0);
 
 const submissionRequests = [];
 const submissionSandbox = {
-  window: { APP_CONFIG: { recordEndpoint: 'https://example.test/record', recordMode: 'no-cors', requestTimeoutMs: 1000 } },
+  window: { APP_CONFIG: { recordEndpoint: 'https://example.test/record', recordMode: 'cors', requestTimeoutMs: 1000 } },
   AbortController,
   setTimeout,
   clearTimeout,
   fetch: async (url, options) => {
     submissionRequests.push({ url, body: JSON.parse(options.body) });
-    return { type: 'opaque', ok: false };
+    return { type: 'cors', ok: true, status: 200, json: async () => ({ ok: true }) };
   },
   console
 };
 runScript('assets/js/submission-client.js', submissionSandbox);
 const submissionResult = await submissionSandbox.window.submitRecord({ complaint: { description: 'test' } });
-assert.equal(submissionResult.confirmed, false);
-assert.equal(submissionResult.responseType, 'opaque');
+assert.equal(submissionResult.confirmed, true);
+assert.equal(submissionResult.responseType, 'cors');
 await submissionSandbox.window.updateOfficialSubmissionStatus('record_abcdefghijklmnop', 'email_verification_required');
 assert.deepEqual(submissionRequests[1].body, {
   action: 'official-submission-status',
@@ -237,6 +237,7 @@ const backendSandbox = { console };
 runScript('apps-script/Code.gs', backendSandbox);
 const backendPayload = {
   recordId: 'record_abcdefghijklmnop',
+  ip: '203.0.113.9',
   lat: 23.7,
   lng: 120.5,
   smellLevel: 4,
@@ -259,6 +260,7 @@ backendSandbox.validatePayload_(backendPayload);
 const backendRecord = backendSandbox.buildRecord_(backendPayload, new Date('2026-08-09T06:30:00.000Z'));
 assert.equal(backendRecord['臭味程度'], 4);
 assert.equal(backendRecord['紀錄ID'], 'record_abcdefghijklmnop');
+assert.equal(backendRecord['IP'], '203.0.113.9');
 assert.equal(backendRecord['環境部送出狀態'], '');
 assert.doesNotMatch(backendRecord['通報資料JSON'], /個資|0900000000/);
 const backendHeaders = Object.keys(backendRecord);
@@ -269,6 +271,7 @@ assert.equal(backendPublic.complaint.locationTown, '斗六市');
 assert.equal(backendPublic.complaint.moenvCause, 'fertilizeCompost');
 assert.equal(backendPublic.complaint.officialSubmissionConfirmed, true);
 assert.equal(backendPublic['紀錄ID'], undefined);
+assert.equal(backendPublic['IP'], undefined);
 assert.equal(backendPublic.reporter, undefined);
 assert.equal(backendPublic['通報資料JSON'], undefined);
 const backendSentRecord = { ...backendRecord, '環境部送出狀態': 'email_verification_required', '環境部送出時間': new Date('2026-08-09T06:35:00.000Z') };
@@ -276,6 +279,8 @@ const backendSentPublic = backendSandbox.publicRecordFromRow_(backendHeaders, ba
 assert.equal(backendSentPublic['環境部送出狀態'], 'email_verification_required');
 assert.equal(new Date(backendSentPublic['環境部送出時間']).toISOString(), '2026-08-09T06:35:00.000Z');
 assert.throws(() => backendSandbox.normaliseRecordId_('short', true), /Invalid recordId/);
+assert.equal(backendSandbox.normaliseIp_('2001:db8::8'), '2001:db8::8');
+assert.equal(backendSandbox.normaliseIp_('999.2.3.4'), '');
 
 const fakeHeaders = backendHeaders.slice();
 const fakeRows = [fakeHeaders, fakeHeaders.map(header => backendRecord[header])];
@@ -359,6 +364,9 @@ const configSource = read('assets/js/app-config.js');
 const submissionSource = read('assets/js/submission-client.js');
 assert.match(configSource, /officialSubmissionTimeoutMs: 60000/);
 assert.match(submissionSource, /officialSubmissionTimeoutMs/);
+assert.match(configSource, /\/record/);
+assert.match(submissionSource, /body\.ok !== true/);
+assert.match(runnerSource, /postRecordUpstream/);
 assert.match(runnerSource, /REQUIRED_COUNTY = process\.env\.REQUIRED_COUNTY \|\| '雲林縣'/);
 assert.match(runnerSource, /mode === 'prepare'/);
 assert.match(runnerSource, /OFFICIAL_SUBMIT_ENABLED/);

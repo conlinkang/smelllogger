@@ -74,6 +74,12 @@ async function configureRoutes(page, state) {
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ records: [] }) });
   });
+  await page.route('**/smelllogger-runner-*.run.app/record', route => {
+    const payload = route.request().postDataJSON();
+    if (payload.action === 'official-submission-status') state.officialStatusPayload = payload;
+    else state.platformPayload = payload;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, ipRecorded: !payload.action }) });
+  });
   await page.route('**/smelllogger-runner-*.run.app/prepare', route => {
     state.preparePayload = route.request().postDataJSON();
     if (state.prepareReady) {
@@ -209,9 +215,11 @@ try {
   await named.page.locator('#officialSubmissionConfirmed').check();
   assert.equal(await named.page.locator('#submitButton').innerText(), '送出平台紀錄＋環境部填單');
   assert.equal(await named.page.locator('#submitButton').isDisabled(), false);
+  assert.match(await named.page.locator('.submit-checklist').innerText(), /完整來源 IP.*不會公開顯示/s);
   await named.page.locator('#submitButton').click();
   await named.page.waitForTimeout(700);
   assert.equal(namedState.preparePayload?.mode, 'prepare');
+  assert.equal(namedState.preparePayload?.recordId, namedState.platformPayload?.recordId, 'official preparation must retain the platform record id');
   assert.equal(namedState.preparePayload?.reporter?.name, 'integration-test');
   assert.ok(Math.abs(namedState.preparePayload?.location?.lat - namedManualSelection.selected.lat) < 0.000001, 'official latitude must follow the manual map selection');
   assert.ok(Math.abs(namedState.preparePayload?.location?.lng - namedManualSelection.selected.lng) < 0.000001, 'official longitude must follow the manual map selection');
