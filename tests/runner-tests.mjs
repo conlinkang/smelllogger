@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 process.env.NODE_ENV = 'test';
-const { classifyOfficialResultText, normalizeVoiceAnalysis, normalizeAcousticFeatures, normalizeTaiwanPhone, stripAddressAdministrativePrefix, validatePacket, validateCaptchaFinalize, isOfficialSubmitEnabled } = await import('../official-form-runner/server.js');
+const { buildRecordProxyPayload, classifyOfficialResultText, normalizeClientIp, normalizeVoiceAnalysis, normalizeAcousticFeatures, normalizeTaiwanPhone, stripAddressAdministrativePrefix, validatePacket, validateCaptchaFinalize, isOfficialSubmitEnabled } = await import('../official-form-runner/server.js');
 
 assert.equal(isOfficialSubmitEnabled('false'), false);
 assert.equal(isOfficialSubmitEnabled('FALSE'), false);
@@ -8,6 +8,7 @@ assert.equal(isOfficialSubmitEnabled('true'), true);
 assert.equal(isOfficialSubmitEnabled('  true '), true);
 
 const packet = {
+  recordId: 'record_test_20260831_abcdef',
   mode: 'prepare',
   officialSubmissionConfirmed: true,
   location: { lat: 23.713179, lng: 120.50558 },
@@ -31,7 +32,15 @@ const packet = {
   }
 };
 
+assert.equal(normalizeClientIp('203.0.113.9, 10.0.0.1'), '203.0.113.9');
+assert.equal(normalizeClientIp('', '::ffff:198.51.100.7'), '198.51.100.7');
+assert.equal(normalizeClientIp('2001:db8::8'), '2001:db8::8');
+assert.equal(normalizeClientIp('not-an-ip'), '');
+assert.equal(buildRecordProxyPayload({ recordId: 'record_test_20260831_abcdef' }, '203.0.113.9').ip, '203.0.113.9');
+assert.equal(Object.hasOwn(buildRecordProxyPayload({ action: 'official-submission-status', recordId: 'record_test_20260831_abcdef' }, '203.0.113.9'), 'ip'), false);
+
 assert.equal(validatePacket(packet).ok, true);
+assert.equal(validatePacket({ ...packet, recordId: '' }).code, 'RECORD_ID_INVALID');
 assert.equal(validatePacket({ ...packet, reporter: { ...packet.reporter, email: '' } }).code, 'REPORTER_INCOMPLETE');
 assert.equal(validatePacket({ ...packet, location: { lat: null, lng: null } }).code, 'LOCATION_COORDINATES_INVALID');
 assert.equal(validatePacket({ ...packet, reporter: { ...packet.reporter, address: '科福一街156號' } }).code, 'REPORTER_ADDRESS_UNPARSEABLE');

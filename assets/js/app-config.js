@@ -2,8 +2,8 @@
 window.APP_CONFIG = Object.freeze({
   // Use a Google Maps browser key restricted by HTTP referrers and API scope.
   googleMapsApiKey: 'AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI',
-  recordEndpoint: 'https://script.google.com/macros/s/AKfycbxOgCXGmBCrAzEDxld8DQtK7s1yO7f4q5owC-B5pGMiJ-uRN2HY4sZZPvMwScgnlP8/exec',
-  recordMode: 'no-cors',
+  recordEndpoint: 'https://smelllogger-runner-442879625893.asia-east1.run.app/record',
+  recordMode: 'cors',
   analysisEndpoint: 'https://script.google.com/macros/s/AKfycbxOgCXGmBCrAzEDxld8DQtK7s1yO7f4q5owC-B5pGMiJ-uRN2HY4sZZPvMwScgnlP8/exec',
   // Cloud Run endpoint. Formal submission still requires the in-page confirmation checkbox.
   officialSubmissionEndpoint: 'https://smelllogger-runner-442879625893.asia-east1.run.app/submit',

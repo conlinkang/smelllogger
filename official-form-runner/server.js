@@ -1,5 +1,6 @@
 import express from 'express';
 import { randomBytes } from 'node:crypto';
+import { isIP } from 'node:net';
 import { chromium } from 'playwright';
 import { SpeechClient } from '@google-cloud/speech';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -19,6 +20,8 @@ const MAX_CAPTCHA_ATTEMPTS = Math.max(1, Number(process.env.MAX_CAPTCHA_ATTEMPTS
 const DIAGNOSTIC_SCREENSHOT_ENABLED = String(process.env.DIAGNOSTIC_SCREENSHOT_ENABLED || '').trim().toLowerCase() === 'true';
 const FINAL_CONFIRMATION_TEXT = '我確認以本人資料正式陳情';
 const VOICE_MODEL = process.env.VERTEX_MODEL || 'gemini-2.5-flash';
+const RECORD_UPSTREAM_URL = String(process.env.RECORD_UPSTREAM_URL || '').trim();
+const RECORD_PROXY_TIMEOUT_MS = Math.max(5_000, Number(process.env.RECORD_PROXY_TIMEOUT_MS || 20_000));
 export function isOfficialSubmitEnabled(value = process.env.OFFICIAL_SUBMIT_ENABLED) {
   return String(value || '').trim().toLowerCase() === 'true';
 }
@@ -74,13 +77,63 @@ function rateLimit(req, res, next) {
   return next();
 }
 
-app.use(['/submit', '/prepare', '/finalize', '/analyze-voice'], rateLimit);
+app.use(['/record', '/submit', '/prepare', '/finalize', '/analyze-voice'], rateLimit);
 
 function text(value, maxLength = 500) {
   return String(value == null ? '' : value)
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
     .trim()
     .slice(0, maxLength);
+}
+
+export function normalizeClientIp(forwardedFor, fallbackAddress = '') {
+  const candidates = `${forwardedFor || ''},${fallbackAddress || ''}`
+    .split(',')
+    .map(value => String(value || '').trim().replace(/^"|"$/g, '').replace(/^\[|\]$/g, ''))
+    .filter(Boolean);
+  for (let candidate of candidates) {
+    if (/^::ffff:/i.test(candidate)) candidate = candidate.slice(7);
+    const zoneIndex = candidate.indexOf('%');
+    if (zoneIndex >= 0) candidate = candidate.slice(0, zoneIndex);
+    if (isIP(candidate)) return candidate;
+  }
+  return '';
+}
+
+export function buildRecordProxyPayload(body, clientIp) {
+  const payload = body && typeof body === 'object' && !Array.isArray(body) ? { ...body } : {};
+  if (payload.action === 'official-submission-status') return payload;
+  return { ...payload, ip: normalizeClientIp('', clientIp) };
+}
+
+async function postRecordUpstream(payload) {
+  if (!RECORD_UPSTREAM_URL) {
+    const error = new Error('Record upstream is not configured');
+    error.code = 'RECORD_UPSTREAM_NOT_CONFIGURED';
+    throw error;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RECORD_PROXY_TIMEOUT_MS);
+  try {
+    const response = await fetch(RECORD_UPSTREAM_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow',
+      signal: controller.signal
+    });
+    const raw = await response.text();
+    let result = {};
+    try { result = JSON.parse(raw); } catch (error) { /* handled below */ }
+    if (!response.ok || result.ok !== true) {
+      const upstreamError = new Error(result.error || `Record upstream returned ${response.status}`);
+      upstreamError.code = result.error === 'Record not found' ? 'RECORD_NOT_FOUND' : 'RECORD_UPSTREAM_FAILED';
+      throw upstreamError;
+    }
+    return result;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function parseCounty(address) {
@@ -111,6 +164,7 @@ function normalizePacket(body) {
     town: text(reporter.town || parseTown(reporter.address), 40)
   };
   return {
+    recordId: text(body && body.recordId, 80),
     mode: text(body && body.mode, 20) || 'prepare',
     finalSubmit: body && body.finalSubmit === true,
     confirmationText: text(body && body.confirmationText, 80),
@@ -161,6 +215,9 @@ function validatePacket(body) {
   const county = packet.complaint.officialForm.pollutionCounty;
   if (!['prepare', 'submit'].includes(packet.mode)) {
     return { ok: false, status: 400, code: 'INVALID_MODE', message: 'mode must be prepare or submit' };
+  }
+  if (!/^[A-Za-z0-9_-]{16,80}$/.test(packet.recordId)) {
+    return { ok: false, status: 400, code: 'RECORD_ID_INVALID', message: '平台紀錄ID缺漏或格式錯誤' };
   }
   if (!packet.officialSubmissionConfirmed) {
     return { ok: false, status: 400, code: 'CONFIRMATION_REQUIRED', message: 'Explicit official submission confirmation is required' };
@@ -713,6 +770,7 @@ async function createOfficialBrowserSession(packet) {
       browser,
       context,
       page,
+      recordId: packet.recordId,
       captchaRequired: await pageHasCaptcha(page),
       evidenceDiagnosticScreenshot,
       locationDiagnosticControls,
@@ -852,6 +910,7 @@ const healthHandler = (req, res) => {
     captchaSessionTtlSeconds: Math.round(CAPTCHA_SESSION_TTL_MS / 1000),
     captchaMaxAttempts: MAX_CAPTCHA_ATTEMPTS,
     diagnosticScreenshotEnabled: DIAGNOSTIC_SCREENSHOT_ENABLED,
+    recordProxyConfigured: Boolean(RECORD_UPSTREAM_URL),
     voiceConfigured: Boolean(process.env.GOOGLE_CLOUD_PROJECT)
   });
 };
@@ -859,6 +918,22 @@ const healthHandler = (req, res) => {
 // Cloud Run's Google Frontend reserves /healthz on public run.app URLs.
 // Keep it for local compatibility and expose /health as the public probe.
 app.get(['/health', '/healthz'], healthHandler);
+
+app.post('/record', async (req, res) => {
+  const clientIp = normalizeClientIp(req.get('x-forwarded-for'), req.socket?.remoteAddress || req.ip);
+  const payload = buildRecordProxyPayload(req.body, clientIp);
+  if (payload.action !== 'official-submission-status' && !payload.ip) {
+    return res.status(400).json({ ok: false, code: 'CLIENT_IP_UNAVAILABLE', error: 'Unable to determine client IP' });
+  }
+  try {
+    const result = await postRecordUpstream(payload);
+    return res.json({ ...result, ipRecorded: payload.action !== 'official-submission-status' });
+  } catch (error) {
+    const code = error.name === 'AbortError' ? 'RECORD_UPSTREAM_TIMEOUT' : (error.code || 'RECORD_UPSTREAM_FAILED');
+    console.warn(JSON.stringify({ event: 'record_proxy_error', code }));
+    return res.status(code === 'RECORD_NOT_FOUND' ? 404 : 502).json({ ok: false, code, error: '平台紀錄寫入失敗' });
+  }
+});
 
 app.post('/analyze-voice', async (req, res) => {
   const expectedToken = String(process.env.RUNNER_TOKEN || '');
@@ -994,9 +1069,26 @@ app.post('/finalize', async (req, res) => {
         attemptsRemaining: MAX_CAPTCHA_ATTEMPTS - session.captchaAttempts
       });
     }
+    let statusRecorded = false;
+    let statusRecordError = '';
+    if (result.status === 'submitted' || result.status === 'email_verification_required') {
+      try {
+        await postRecordUpstream({
+          action: 'official-submission-status',
+          recordId: session.recordId,
+          status: result.status
+        });
+        statusRecorded = true;
+      } catch (error) {
+        statusRecordError = error.code || 'RECORD_UPSTREAM_FAILED';
+        console.warn(JSON.stringify({ event: 'official_status_writeback_error', code: statusRecordError }));
+      }
+    }
     await deleteCaptchaSession(session.sessionId);
     return res.status(result.status === 'submitted' || result.status === 'email_verification_required' ? 200 : 202).json({
       ...result,
+      statusRecorded,
+      statusRecordError,
       diagnosticScreenshot
     });
   } catch (error) {
