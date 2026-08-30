@@ -958,6 +958,11 @@
       const smellLevel = document.querySelector('input[name="smellLevel"]:checked').value;
       const smellTime = document.getElementById('smellTime').value;
       const complaint = getComplaintData();
+      const reporterComplete = typeof window.isReporterCompleteForOfficial === 'function'
+        ? window.isReporterCompleteForOfficial(complaint)
+        : false;
+      const config = window.APP_CONFIG || {};
+      const officialReady = Boolean(complaint.officialSubmissionConfirmed && reporterComplete && config.officialPrepareEndpoint && config.officialFinalizeEndpoint);
       updateSubmissionChecklist();
 
       const submitButton = document.getElementById('submitButton');
@@ -970,6 +975,7 @@
         smellTime,
         weatherInfo: readWeatherInfo('weatherInfo'),
         weatherInfo_suspect: readWeatherInfo('weatherInfo_suspect'),
+        officialSubmissionStatus: officialReady ? 'official_pending' : 'platform_only',
         complaint: getPlatformComplaintData()
       };
       isSubmitting = true;
@@ -979,11 +985,6 @@
       try {
         const result = await submitRecord(data);
         isSubmitted = true;
-        const reporterComplete = typeof window.isReporterCompleteForOfficial === 'function'
-          ? window.isReporterCompleteForOfficial(complaint)
-          : false;
-        const config = window.APP_CONFIG || {};
-        const officialReady = Boolean(complaint.officialSubmissionConfirmed && reporterComplete && config.officialPrepareEndpoint && config.officialFinalizeEndpoint);
         let officialText = !reporterComplete
           ? '本次只送出平台紀錄；環境部個資未完成，因此不送出環境部。'
           : !complaint.officialSubmissionConfirmed
@@ -1005,6 +1006,7 @@
             }
           } catch (officialError) {
             console.warn('環境部資料準備服務未完成：', officialError);
+            await recordOfficialSubmissionOutcome('official_failed');
             setOfficialCaptchaPanelVisible(false);
             setOfficialSimulationVisible(false);
             setOfficialReviewPanelVisible(true);

@@ -136,6 +136,14 @@ async function postRecordUpstream(payload) {
   }
 }
 
+async function recordOfficialWorkflowStatus(recordId, status) {
+  return postRecordUpstream({
+    action: 'official-submission-status',
+    recordId,
+    status
+  });
+}
+
 function parseCounty(address) {
   const value = text(address);
   const match = value.match(/^(.{2,5}縣|.{2,5}市)/);
@@ -987,17 +995,29 @@ app.post('/prepare', async (req, res) => {
       });
     }
     await registerCaptchaSession(session);
+    const preparedStatus = session.captchaRequired ? 'captcha_required' : 'ready_for_final_review';
+    let statusRecorded = false;
+    let statusRecordError = '';
+    try {
+      await recordOfficialWorkflowStatus(session.recordId, preparedStatus);
+      statusRecorded = true;
+    } catch (error) {
+      statusRecordError = error.code || 'RECORD_UPSTREAM_FAILED';
+      console.warn(JSON.stringify({ event: 'official_status_writeback_error', code: statusRecordError }));
+    }
     console.info(JSON.stringify({
       event: 'official_prepare_result',
-      status: session.captchaRequired ? 'captcha_required' : 'ready_for_final_review',
+      status: preparedStatus,
       stage: session.stage,
       captchaRequired: session.captchaRequired,
       captchaImageCaptured: Boolean(captchaImage),
       diagnosticScreenshotCaptured: Boolean(diagnosticScreenshot)
     }));
     return res.status(202).json({
-      status: session.captchaRequired ? 'captcha_required' : 'ready_for_final_review',
+      status: preparedStatus,
       code: session.captchaRequired ? 'CAPTCHA_REQUIRED' : 'READY_FOR_FINAL_REVIEW',
+      statusRecorded,
+      statusRecordError,
       sessionId: session.sessionId,
       captchaImage,
       diagnosticScreenshot,
@@ -1008,12 +1028,23 @@ app.post('/prepare', async (req, res) => {
     });
   } catch (error) {
     const code = error.code || 'RUNNER_FAILED';
+    let statusRecorded = false;
+    let statusRecordError = '';
+    try {
+      await recordOfficialWorkflowStatus(validation.packet.recordId, 'official_failed');
+      statusRecorded = true;
+    } catch (recordError) {
+      statusRecordError = recordError.code || 'RECORD_UPSTREAM_FAILED';
+      console.warn(JSON.stringify({ event: 'official_status_writeback_error', code: statusRecordError }));
+    }
     console.warn(JSON.stringify({ event: 'official_prepare_error', code, stage: error.stage || 'unknown' }));
     const result = {
       status: 'manual_required',
       code,
       stage: error.stage || 'unknown',
-      message: '環境部表單無法準備，請改用人工流程'
+      message: '環境部表單無法準備，請改用人工流程',
+      statusRecorded,
+      statusRecordError
     };
     if (process.env.DEBUG_RUNNER === 'true') result.detail = text(error.message, 300);
     if (DIAGNOSTIC_SCREENSHOT_ENABLED && req.body?.diagnosticScreenshotRequested === true) {
@@ -1054,11 +1085,22 @@ app.post('/finalize', async (req, res) => {
       session.captchaRequired = true;
       if (validation.captchaText) session.captchaAttempts += 1;
       if (session.captchaAttempts >= MAX_CAPTCHA_ATTEMPTS) {
+        let statusRecorded = false;
+        let statusRecordError = '';
+        try {
+          await recordOfficialWorkflowStatus(session.recordId, 'official_failed');
+          statusRecorded = true;
+        } catch (error) {
+          statusRecordError = error.code || 'RECORD_UPSTREAM_FAILED';
+          console.warn(JSON.stringify({ event: 'official_status_writeback_error', code: statusRecordError }));
+        }
         await deleteCaptchaSession(session.sessionId);
         return res.status(410).json({
           status: 'expired',
           code: 'CAPTCHA_ATTEMPTS_EXCEEDED',
-          message: 'CAPTCHA 輸入錯誤次數已達上限，請重新準備表單'
+          message: 'CAPTCHA 輸入錯誤次數已達上限，請重新準備表單',
+          statusRecorded,
+          statusRecordError
         });
       }
       return res.status(202).json({
@@ -1071,18 +1113,15 @@ app.post('/finalize', async (req, res) => {
     }
     let statusRecorded = false;
     let statusRecordError = '';
-    if (result.status === 'submitted' || result.status === 'email_verification_required') {
-      try {
-        await postRecordUpstream({
-          action: 'official-submission-status',
-          recordId: session.recordId,
-          status: result.status
-        });
-        statusRecorded = true;
-      } catch (error) {
-        statusRecordError = error.code || 'RECORD_UPSTREAM_FAILED';
-        console.warn(JSON.stringify({ event: 'official_status_writeback_error', code: statusRecordError }));
-      }
+    const workflowStatus = result.status === 'submitted' || result.status === 'email_verification_required'
+      ? result.status
+      : 'official_failed';
+    try {
+      await recordOfficialWorkflowStatus(session.recordId, workflowStatus);
+      statusRecorded = true;
+    } catch (error) {
+      statusRecordError = error.code || 'RECORD_UPSTREAM_FAILED';
+      console.warn(JSON.stringify({ event: 'official_status_writeback_error', code: statusRecordError }));
     }
     await deleteCaptchaSession(session.sessionId);
     return res.status(result.status === 'submitted' || result.status === 'email_verification_required' ? 200 : 202).json({
@@ -1092,6 +1131,15 @@ app.post('/finalize', async (req, res) => {
       diagnosticScreenshot
     });
   } catch (error) {
+    let statusRecorded = false;
+    let statusRecordError = '';
+    try {
+      await recordOfficialWorkflowStatus(session.recordId, 'official_failed');
+      statusRecorded = true;
+    } catch (recordError) {
+      statusRecordError = recordError.code || 'RECORD_UPSTREAM_FAILED';
+      console.warn(JSON.stringify({ event: 'official_status_writeback_error', code: statusRecordError }));
+    }
     await deleteCaptchaSession(session.sessionId);
     const code = error.code || 'RUNNER_FAILED';
     console.warn(JSON.stringify({ event: 'official_finalize_error', code, stage: error.stage || 'final-submit' }));
@@ -1099,7 +1147,9 @@ app.post('/finalize', async (req, res) => {
       status: 'manual_required',
       code,
       stage: error.stage || 'final-submit',
-      message: '環境部最後送出無法完成，請改用人工流程'
+      message: '環境部最後送出無法完成，請改用人工流程',
+      statusRecorded,
+      statusRecordError
     };
     if (process.env.DEBUG_RUNNER === 'true') result.detail = text(error.message, 300);
     return res.status(500).json(result);

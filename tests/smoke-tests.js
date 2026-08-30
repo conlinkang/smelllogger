@@ -237,6 +237,7 @@ const backendSandbox = { console };
 runScript('apps-script/Code.gs', backendSandbox);
 const backendPayload = {
   recordId: 'record_abcdefghijklmnop',
+  officialSubmissionStatus: 'official_pending',
   ip: '203.0.113.9',
   lat: 23.7,
   lng: 120.5,
@@ -261,7 +262,8 @@ const backendRecord = backendSandbox.buildRecord_(backendPayload, new Date('2026
 assert.equal(backendRecord['臭味程度'], 4);
 assert.equal(backendRecord['紀錄ID'], 'record_abcdefghijklmnop');
 assert.equal(backendRecord['IP'], '203.0.113.9');
-assert.equal(backendRecord['環境部送出狀態'], '');
+assert.equal(backendRecord['環境部送出狀態'], 'official_pending');
+assert.equal(backendRecord['環境部送出時間'], '');
 assert.doesNotMatch(backendRecord['通報資料JSON'], /個資|0900000000/);
 const backendHeaders = Object.keys(backendRecord);
 const backendPublic = backendSandbox.publicRecordFromRow_(backendHeaders, backendHeaders.map(header => backendRecord[header]));
@@ -311,6 +313,12 @@ const updateResult = backendSandbox.updateOfficialSubmission_({
 assert.equal(updateResult.updated, true);
 assert.equal(fakeRows[1][fakeHeaders.indexOf('環境部送出狀態')], 'email_verification_required');
 assert.equal(fakeRows[1][fakeHeaders.indexOf('環境部送出時間')].toISOString(), '2026-08-09T06:35:00.000Z');
+backendSandbox.updateOfficialSubmission_({
+  recordId: 'record_abcdefghijklmnop',
+  status: 'official_failed'
+}, new Date('2026-08-09T06:36:00.000Z'));
+assert.equal(fakeRows[1][fakeHeaders.indexOf('環境部送出狀態')], 'official_failed');
+assert.equal(fakeRows[1][fakeHeaders.indexOf('環境部送出時間')], '');
 const noConsentPayload = { ...backendPayload, complaint: { ...backendPayload.complaint, reporterConsent: false } };
 const noConsentRecord = backendSandbox.buildRecord_(noConsentPayload, new Date('2026-08-09T06:30:00.000Z'));
 assert.doesNotMatch(noConsentRecord['通報資料JSON'], /個資/);
@@ -323,8 +331,14 @@ const blankReporterPayload = {
   }
 };
 const platformOnlyRecord = backendSandbox.buildRecord_(blankReporterPayload, new Date('2026-08-09T06:30:00.000Z'));
+assert.equal(platformOnlyRecord['環境部送出狀態'], 'official_pending');
 assert.doesNotMatch(platformOnlyRecord['通報資料JSON'], /"reporter":|康嘉麟|0963158502|conlinkang@gmail\.com|科福一街156號/);
 assert.match(platformOnlyRecord['通報資料JSON'], /platform-only/);
+const explicitPlatformOnlyRecord = backendSandbox.buildRecord_({
+  ...blankReporterPayload,
+  officialSubmissionStatus: 'platform_only'
+}, new Date('2026-08-09T06:30:00.000Z'));
+assert.equal(explicitPlatformOnlyRecord['環境部送出狀態'], 'platform_only');
 
 for (const file of ['index.html', 'analysis.html', 'index_test.html', 'analysis_test.html']) {
   const source = read(file);

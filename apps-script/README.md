@@ -19,7 +19,8 @@
 - `reporter` 的姓名、電話、Email、聯絡地址只供當次前端複製正式填單使用，Apps Script 會在寫入 Sheet 前一律剔除，不保存於 `通報資料JSON`。
 - 使用者勾選本機記住時，資料保存在瀏覽器 localStorage，不會送到 Apps Script。
 - `doGet` 只回傳分析所需欄位與去除通報人聯絡資料的 `complaint` 摘要，不回傳姓名、電話、Email、聯絡地址、IP 或原始說明文字。
-- 測試版會為新平台紀錄建立隨機 `紀錄ID`。只有 Cloud Run 最後回傳 `submitted` 或 `email_verification_required` 時，前端才會以該 ID 寫回 `環境部送出狀態` 與伺服器時間；`紀錄ID` 不會由 `doGet` 公開。
+- 新平台紀錄會建立隨機 `紀錄ID`，並先寫入 `platform_only` 或 `official_pending`。Cloud Run 會依流程覆寫為 `captcha_required`、`ready_for_final_review`、`email_verification_required`、`submitted` 或 `official_failed`；`紀錄ID` 不會由 `doGet` 公開。
+- 只有 `submitted` 與 `email_verification_required` 會填入 `環境部送出時間`；其他狀態保留空白，避免把平台時間誤認成環境部送出時間。
 - `email_verification_required` 代表環境部表單已送出但仍待使用者完成信箱認證；analysis 的「已送出環境部」會計入此狀態，但不等同已取得案件編號。
 - 正式部署前要確認 Google Sheet 存取權、個資保存期限與環境部通報流程的管理責任。
 

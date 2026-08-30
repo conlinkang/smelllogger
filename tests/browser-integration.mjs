@@ -218,6 +218,7 @@ try {
   assert.match(await named.page.locator('.submit-checklist').innerText(), /完整來源 IP.*不會公開顯示/s);
   await named.page.locator('#submitButton').click();
   await named.page.waitForTimeout(700);
+  assert.equal(namedState.platformPayload?.officialSubmissionStatus, 'official_pending', 'named official flow should start as pending');
   assert.equal(namedState.preparePayload?.mode, 'prepare');
   assert.equal(namedState.preparePayload?.recordId, namedState.platformPayload?.recordId, 'official preparation must retain the platform record id');
   assert.equal(namedState.preparePayload?.reporter?.name, 'integration-test');
@@ -293,6 +294,7 @@ try {
   assert.equal(await platformOnly.page.locator('#submitButton').isDisabled(), false);
   await platformOnly.page.locator('#submitButton').click();
   await platformOnly.page.waitForTimeout(700);
+  assert.equal(platformOnlyState.platformPayload?.officialSubmissionStatus, 'platform_only', 'platform-only submissions must be explicit in the sheet');
   assert.equal(platformOnlyState.platformPayload?.reporter, undefined);
   assert.equal(platformOnlyState.preparePayload, null);
   assert.equal(platformOnlyState.finalizePayload, null);
