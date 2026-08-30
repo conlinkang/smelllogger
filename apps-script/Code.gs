@@ -35,6 +35,15 @@ const HEADERS = [
 ];
 
 const PRIVATE_HEADERS = new Set(['紀錄ID', 'IP', '備註', '通報資料JSON']);
+const OFFICIAL_WORKFLOW_STATUSES = new Set([
+  'platform_only',
+  'official_pending',
+  'captcha_required',
+  'ready_for_final_review',
+  'email_verification_required',
+  'submitted',
+  'official_failed'
+]);
 const OFFICIAL_SENT_STATUSES = new Set(['submitted', 'email_verification_required']);
 
 function doPost(event) {
@@ -116,7 +125,7 @@ function buildRecord_(payload, recordedAt) {
     // Keep a readable legacy note while the JSON column is the source of truth.
     '備註': valueOrBlank_(complaint.description),
     '通報資料JSON': JSON.stringify(complaint),
-    '環境部送出狀態': '',
+    '環境部送出狀態': normaliseInitialOfficialStatus_(payload.officialSubmissionStatus),
     '環境部送出時間': ''
   };
 }
@@ -124,7 +133,7 @@ function buildRecord_(payload, recordedAt) {
 function updateOfficialSubmission_(payload, submittedAt) {
   const recordId = normaliseRecordId_(payload.recordId, true);
   const status = String(payload.status || '').trim();
-  if (!OFFICIAL_SENT_STATUSES.has(status)) throw new Error('Unsupported official submission status');
+  if (!OFFICIAL_WORKFLOW_STATUSES.has(status)) throw new Error('Unsupported official submission status');
 
   const sheet = getSheet_();
   const headers = ensureHeaders_(sheet);
@@ -142,8 +151,12 @@ function updateOfficialSubmission_(payload, submittedAt) {
   const rowNumber = match.getRow();
 
   sheet.getRange(rowNumber, statusColumn).setValue(status);
-  sheet.getRange(rowNumber, timeColumn).setValue(submittedAt);
+  sheet.getRange(rowNumber, timeColumn).setValue(OFFICIAL_SENT_STATUSES.has(status) ? submittedAt : '');
   return { ok: true, updated: true, status };
+}
+
+function normaliseInitialOfficialStatus_(value) {
+  return String(value || '').trim() === 'official_pending' ? 'official_pending' : 'platform_only';
 }
 
 function normaliseRecordId_(value, required) {

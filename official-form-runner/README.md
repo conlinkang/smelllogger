@@ -7,6 +7,8 @@
 
 正式流程使用兩階段 API：`/prepare` 會完成表單欄位並將環境部 CAPTCHA 圖片回傳前端；使用者本人辨識後，`/finalize` 會在同一個短效 Playwright 工作階段輸入 CAPTCHA 並按下最後送出。服務不使用 OCR 或 LLM 破解 CAPTCHA。舊版 `/submit` 保留相容用途。
 
+平台紀錄狀態會依序寫回 Apps Script：`official_pending` → `captcha_required`／`ready_for_final_review` → `email_verification_required`／`submitted`；準備或最後送出失敗則記為 `official_failed`。未啟動環境部流程的紀錄由前端標記為 `platform_only`。
+
 ## 本機檢查
 
 ```powershell
