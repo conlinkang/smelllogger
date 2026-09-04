@@ -280,6 +280,14 @@ const backendSentRecord = { ...backendRecord, '環境部送出狀態': 'email_ve
 const backendSentPublic = backendSandbox.publicRecordFromRow_(backendHeaders, backendHeaders.map(header => backendSentRecord[header]));
 assert.equal(backendSentPublic['環境部送出狀態'], 'email_verification_required');
 assert.equal(new Date(backendSentPublic['環境部送出時間']).toISOString(), '2026-08-09T06:35:00.000Z');
+const deferredOfficialRecord = backendSandbox.buildRecord_({
+  ...backendPayload,
+  officialSubmissionStatus: 'email_verification_required'
+}, new Date('2026-08-09T06:35:00.000Z'));
+assert.equal(deferredOfficialRecord['環境部送出狀態'], 'email_verification_required');
+assert.equal(deferredOfficialRecord['環境部送出時間'].toISOString(), '2026-08-09T06:35:00.000Z');
+assert.equal(backendSandbox.isPublicRecordRow_(Object.keys(backendRecord), Object.keys(backendRecord).map(header => backendRecord[header])), false);
+assert.equal(backendSandbox.isPublicRecordRow_(Object.keys(deferredOfficialRecord), Object.keys(deferredOfficialRecord).map(header => deferredOfficialRecord[header])), true);
 assert.throws(() => backendSandbox.normaliseRecordId_('short', true), /Invalid recordId/);
 assert.equal(backendSandbox.normaliseIp_('2001:db8::8'), '2001:db8::8');
 assert.equal(backendSandbox.normaliseIp_('999.2.3.4'), '');

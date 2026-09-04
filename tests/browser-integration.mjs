@@ -218,9 +218,9 @@ try {
   assert.match(await named.page.locator('.submit-checklist').innerText(), /完整來源 IP.*不會公開顯示/s);
   await named.page.locator('#submitButton').click();
   await named.page.waitForTimeout(700);
-  assert.equal(namedState.platformPayload?.officialSubmissionStatus, 'official_pending', 'named official flow should start as pending');
+  assert.equal(namedState.platformPayload, null, 'official flow must not create a platform record before final official submission');
   assert.equal(namedState.preparePayload?.mode, 'prepare');
-  assert.equal(namedState.preparePayload?.recordId, namedState.platformPayload?.recordId, 'official preparation must retain the platform record id');
+  assert.match(namedState.preparePayload?.recordId || '', /^[A-Za-z0-9_-]{16,80}$/, 'official preparation must create a stable record id');
   assert.equal(namedState.preparePayload?.reporter?.name, 'integration-test');
   assert.ok(Math.abs(namedState.preparePayload?.location?.lat - namedManualSelection.selected.lat) < 0.000001, 'official latitude must follow the manual map selection');
   assert.ok(Math.abs(namedState.preparePayload?.location?.lng - namedManualSelection.selected.lng) < 0.000001, 'official longitude must follow the manual map selection');
@@ -252,8 +252,9 @@ try {
   assert.equal(namedState.finalizePayload?.confirmationText, '我確認以本人資料正式陳情');
   if (indexPage === 'index_test.html' || indexPage === 'index.html') {
     await named.page.waitForFunction(() => document.querySelector('#message')?.textContent?.includes('分析紀錄'));
-    assert.equal(namedState.officialStatusPayload?.recordId, namedState.platformPayload?.recordId, 'official status update must target the original platform record');
-    assert.equal(namedState.officialStatusPayload?.status, 'email_verification_required', 'email verification stage should count as sent to MOENV');
+    assert.equal(namedState.officialStatusPayload, undefined, 'deferred official flow must not update a row that does not exist yet');
+    assert.equal(namedState.platformPayload?.officialSubmissionStatus, 'email_verification_required', 'the platform row is created only after MOENV accepts the form');
+    assert.equal(namedState.preparePayload?.recordId, namedState.platformPayload?.recordId, 'final platform record must retain the original transaction id');
     assert.match(namedState.platformPayload?.recordId || '', /^[A-Za-z0-9_-]{16,80}$/);
   }
   assert.match(await named.page.locator('#message').innerText(), /收件匣.*垃圾郵件.*完成認證/s);

@@ -377,8 +377,8 @@
       <p id="officialCaptchaStatus" role="status" aria-live="polite"></p>
     </section>
     <section id="officialReviewPanel" class="official-review" hidden aria-labelledby="official-review-title">
-      <h4 id="official-review-title">下一步：人工檢查並完成最後送出</h4>
-      <p>雲端服務已完成環境部表單的資料準備，現在需要你在環境部網站檢查內容並按下環境部表單的最後「送出」。</p>
+      <h4 id="official-review-title">環境部自動填單未完成</h4>
+      <p>系統目前無法確認環境部表單已正確準備；本次尚未送出環境部，也尚未建立正式平台紀錄。你可以重新嘗試，或改由環境部網站人工填寫。</p>
       <ol>
         <li>按「開啟環境部公害陳情表單」。</li>
         <li>按「複製完整通報資料」，依資料貼入環境部表單並檢查。</li>
@@ -521,6 +521,7 @@
     let officialCaptchaSessionId = '';
     let officialCaptchaExpiresAt = 0;
     let officialCaptchaTimer = null;
+    let pendingPlatformRecord = null;
     const arrowOverlays = [];
     const gridCells = [];
     const center = {lat: 23.713179185745247, lng: 120.50557988120599}; // 中心座標
@@ -583,7 +584,7 @@
         submitModeHint.textContent = mode === 'location-required'
           ? '尚未完成定位，請先選擇通報位置；完成定位後才可送出平台紀錄。'
           : mode === 'platform-and-environment'
-            ? '已完成定位、環境部個資與確認；按下後會送出平台紀錄，並啟動環境部填單。'
+            ? '已完成定位、環境部個資與確認；按下後會先完成環境部填單，成功後才建立唯一一筆平台紀錄。'
             : !reporterComplete
               ? '環境部個資未完成；目前按下只會送出平台紀錄，不會送出環境部。若要送出環境部，請填妥四項個資。'
               : !consent
@@ -675,20 +676,81 @@
       requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
 
+    function showOfficialWaitingState(seconds, code) {
+      const panel = document.getElementById('officialCaptchaPanel');
+      const title = document.getElementById('official-captcha-title');
+      const instructions = document.getElementById('officialCaptchaInstructions');
+      const imageWrap = document.getElementById('officialCaptchaImageWrap');
+      const field = document.getElementById('officialCaptchaField');
+      const submit = document.getElementById('officialCaptchaSubmit');
+      const status = document.getElementById('officialCaptchaStatus');
+      if (panel) panel.hidden = false;
+      if (title) title.textContent = '環境部填單通道等待中';
+      if (instructions) instructions.textContent = code === 'OFFICIAL_QUEUE_BUSY'
+        ? '目前有另一筆環境部送件正在處理。您的資料尚未送出，也尚未建立正式平台紀錄。'
+        : '環境部填單頁面暫時無法完成。您的資料尚未送出，也尚未建立正式平台紀錄。';
+      if (imageWrap) imageWrap.hidden = true;
+      if (field) field.hidden = true;
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = '等待自動重試';
+      }
+      if (status) status.textContent = `約 ${seconds} 秒後自動重試，請保持此頁開啟並勿重複送出。`;
+      requestAnimationFrame(() => panel?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+
+    function waitForOfficialRetry(seconds, code) {
+      return new Promise(resolve => {
+        let remaining = Math.max(1, Number(seconds) || 60);
+        showOfficialWaitingState(remaining, code);
+        const timer = window.setInterval(() => {
+          remaining -= 1;
+          const status = document.getElementById('officialCaptchaStatus');
+          if (status && remaining > 0) status.textContent = `約 ${remaining} 秒後自動重試，請保持此頁開啟並勿重複送出。`;
+          if (remaining <= 0) {
+            window.clearInterval(timer);
+            if (status) status.textContent = '正在重新連線環境部填單系統…';
+            resolve();
+          }
+        }, 1000);
+      });
+    }
+
     async function prepareOfficialCaptchaFlow() {
       const config = window.APP_CONFIG || {};
       if (!config.officialPrepareEndpoint) throw new Error('環境部資料準備服務尚未設定');
-      const result = await prepareOfficialComplaint({
-        ...getOfficialSubmissionPacket('prepare', currentPosition),
-        recordId: currentRecordId
-      });
-      if (result.status === 'captcha_required' || result.status === 'ready_for_final_review') {
-        setOfficialReviewPanelVisible(false);
-        setOfficialSimulationVisible(false);
-        setOfficialCaptchaPanelVisible(true, result);
-        return result;
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          const result = await prepareOfficialComplaint({
+            ...getOfficialSubmissionPacket('prepare', currentPosition),
+            recordId: currentRecordId
+          });
+          if (result.status === 'captcha_required' || result.status === 'ready_for_final_review') {
+            setOfficialReviewPanelVisible(false);
+            setOfficialSimulationVisible(false);
+            setOfficialCaptchaPanelVisible(true, result);
+            return result;
+          }
+          throw Object.assign(new Error('環境部資料準備未完成'), { code: result.code || 'PREPARE_FAILED', result });
+        } catch (error) {
+          const retryable = error.code === 'OFFICIAL_QUEUE_BUSY' || error.code === 'OFFICIAL_TEMPORARILY_BUSY';
+          if (!retryable || attempt >= 3) throw error;
+          await waitForOfficialRetry(error.result?.retryAfterSeconds || [60, 120, 300][attempt], error.code);
+        }
       }
-      throw Object.assign(new Error('環境部資料準備未完成'), { code: result.code || 'PREPARE_FAILED', result });
+      throw Object.assign(new Error('環境部資料準備重試未完成'), { code: 'OFFICIAL_RETRY_EXHAUSTED' });
+    }
+
+    async function commitOfficialPlatformRecord(status) {
+      if (!pendingPlatformRecord) return false;
+      const result = await submitRecord({ ...pendingPlatformRecord, officialSubmissionStatus: status });
+      pendingPlatformRecord = null;
+      const submitButton = document.getElementById('submitButton');
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = '已送出';
+      }
+      return Boolean(result.confirmed);
     }
 
     async function handleCaptchaRestart() {
@@ -733,9 +795,7 @@
         officialCaptchaSessionId = '';
         clearOfficialCaptchaTimer();
         if (result.status === 'submitted') {
-          const statusRecorded = typeof result.statusRecorded === 'boolean'
-            ? result.statusRecorded
-            : await recordOfficialSubmissionOutcome(result.status);
+          const statusRecorded = await commitOfficialPlatformRecord(result.status);
           if (status) status.textContent = '環境部陳情已完成送出。';
           if (button) button.textContent = '環境部已送出';
           document.getElementById('message').textContent = statusRecorded
@@ -744,9 +804,7 @@
           return;
         }
         if (result.status === 'email_verification_required') {
-          const statusRecorded = typeof result.statusRecorded === 'boolean'
-            ? result.statusRecorded
-            : await recordOfficialSubmissionOutcome(result.status);
+          const statusRecorded = await commitOfficialPlatformRecord(result.status);
           if (status) status.textContent = '環境部表單已送出。您尚未完成報案，請至信箱收取認證信；若收件匣沒有看到，請檢查垃圾郵件。請由信中連結完成確認，直到取得案件編號後才算完成報案。';
           if (button) button.textContent = '已送出，待信箱認證';
           document.getElementById('message').textContent = statusRecorded
@@ -966,7 +1024,7 @@
       updateSubmissionChecklist();
 
       const submitButton = document.getElementById('submitButton');
-      currentRecordId = createRecordId();
+      currentRecordId = currentRecordId || createRecordId();
       const data = {
         recordId: currentRecordId,
         lat: currentPosition.lat,
@@ -975,7 +1033,7 @@
         smellTime,
         weatherInfo: readWeatherInfo('weatherInfo'),
         weatherInfo_suspect: readWeatherInfo('weatherInfo_suspect'),
-        officialSubmissionStatus: officialReady ? 'official_pending' : 'platform_only',
+        officialSubmissionStatus: 'platform_only',
         complaint: getPlatformComplaintData()
       };
       isSubmitting = true;
@@ -983,8 +1041,14 @@
       submitButton.disabled = true;
       submitButton.textContent = '送出中...';
       try {
-        const result = await submitRecord(data);
-        isSubmitted = true;
+        let result = { confirmed: false };
+        if (!officialReady) {
+          result = await submitRecord(data);
+          isSubmitted = true;
+        } else {
+          pendingPlatformRecord = data;
+          isSubmitted = true;
+        }
         let officialText = !reporterComplete
           ? '本次只送出平台紀錄；環境部個資未完成，因此不送出環境部。'
           : !complaint.officialSubmissionConfirmed
@@ -1006,20 +1070,22 @@
             }
           } catch (officialError) {
             console.warn('環境部資料準備服務未完成：', officialError);
-            await recordOfficialSubmissionOutcome('official_failed');
             setOfficialCaptchaPanelVisible(false);
             setOfficialSimulationVisible(false);
             setOfficialReviewPanelVisible(true);
+            isSubmitted = false;
             officialText = officialError.name === 'AbortError'
-              ? '環境部資料準備逾時，平台紀錄仍已送出；請使用下方人工確認入口完成提交。'
-              : `環境部資料準備未完成（${officialError.code || '網路錯誤'}），平台紀錄仍已送出；請使用下方人工確認入口完成提交。`;
+              ? '環境部資料準備逾時；尚未送出環境部，也尚未建立正式平台紀錄。可使用同一筆資料重新嘗試。'
+              : `環境部資料準備未完成（${officialError.code || '網路錯誤'}）；尚未送出環境部，也尚未建立正式平台紀錄。可使用同一筆資料重新嘗試。`;
           }
         } else if (complaint.officialSubmissionConfirmed && !reporterComplete) {
           officialText = '平台紀錄已送出；具名資料不完整，未啟動環境部填單。請確認聯絡地址包含縣市與鄉鎮市區，例如「雲林縣斗六市○○路1號」。';
         }
-        document.getElementById('message').textContent = result.confirmed
-          ? `臭味紀錄已送出；${officialText}`
-          : `臭味紀錄請求已送出；瀏覽器目前無法驗證伺服器是否保存。${officialText}`;
+        document.getElementById('message').textContent = officialReady
+          ? officialText
+          : result.confirmed
+            ? `臭味紀錄已送出；${officialText}`
+            : `臭味紀錄請求已送出；瀏覽器目前無法驗證伺服器是否保存。${officialText}`;
       } catch (error) {
         const message = error.name === 'AbortError' ? '送出逾時，請稍後再試。' : '送出發生錯誤，請檢查網路或伺服器設定。';
         document.getElementById('message').textContent = message;
@@ -1027,7 +1093,9 @@
       } finally {
         isSubmitting = false;
         submitButton.disabled = isSubmitted;
-        submitButton.textContent = isSubmitted ? '已送出' : '送出';
+        submitButton.textContent = isSubmitted
+          ? (pendingPlatformRecord ? '等待完成環境部送出' : '已送出')
+          : (pendingPlatformRecord ? '重新嘗試環境部填單' : '送出');
       }
     }
 

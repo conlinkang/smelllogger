@@ -25,8 +25,8 @@ assert.equal(
   'production and test analysis pages may differ only in the return destination'
 );
 for (const [name, page] of Object.entries({ index, indexTest })) {
-  assert.match(page, /currentRecordId = createRecordId\(\)/, `${name} should assign a record ID before platform submission`);
-  assert.match(page, /recordOfficialSubmissionOutcome\(result\.status\)/, `${name} should write back successful official submission status`);
+  assert.match(page, /currentRecordId = currentRecordId \|\| createRecordId\(\)/, `${name} should create one stable record ID and reuse it for retries`);
+  assert.match(page, /commitOfficialPlatformRecord\(result\.status\)/, `${name} should create the platform row only after official submission succeeds`);
 }
 for (const [name, page] of Object.entries({ analysis, analysisTest })) {
   assert.match(page, /id="officialSubmissionCount"/, `${name} should show the official submission count`);

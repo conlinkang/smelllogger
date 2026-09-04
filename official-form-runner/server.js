@@ -17,6 +17,7 @@ const ALLOWED_ATTACHMENT_TYPES = new Set(['image/jpeg', 'image/png']);
 const CAPTCHA_SESSION_TTL_MS = Math.max(60_000, Number(process.env.CAPTCHA_SESSION_TTL_MS || 5 * 60 * 1000));
 const MAX_CAPTCHA_SESSIONS = Math.max(1, Number(process.env.MAX_CAPTCHA_SESSIONS || 3));
 const MAX_CAPTCHA_ATTEMPTS = Math.max(1, Number(process.env.MAX_CAPTCHA_ATTEMPTS || 3));
+const PREPARE_RETRY_DELAYS_SECONDS = [60, 120, 300];
 const DIAGNOSTIC_SCREENSHOT_ENABLED = String(process.env.DIAGNOSTIC_SCREENSHOT_ENABLED || '').trim().toLowerCase() === 'true';
 const FINAL_CONFIRMATION_TEXT = '我確認以本人資料正式陳情';
 const VOICE_MODEL = process.env.VERTEX_MODEL || 'gemini-2.5-flash';
@@ -876,6 +877,25 @@ async function fillOfficialForm(packet) {
 }
 
 const captchaSessions = new Map();
+let officialPrepareBlockedUntil = 0;
+let consecutiveTransientPrepareFailures = 0;
+
+function retryAfterSeconds() {
+  return Math.max(1, Math.ceil((officialPrepareBlockedUntil - Date.now()) / 1000));
+}
+
+function markTransientPrepareFailure() {
+  const index = Math.min(consecutiveTransientPrepareFailures, PREPARE_RETRY_DELAYS_SECONDS.length - 1);
+  const seconds = PREPARE_RETRY_DELAYS_SECONDS[index];
+  consecutiveTransientPrepareFailures += 1;
+  officialPrepareBlockedUntil = Date.now() + seconds * 1000;
+  return seconds;
+}
+
+function clearTransientPrepareFailure() {
+  consecutiveTransientPrepareFailures = 0;
+  officialPrepareBlockedUntil = 0;
+}
 
 async function deleteCaptchaSession(sessionId) {
   const session = captchaSessions.get(sessionId);
@@ -981,7 +1001,25 @@ app.post('/prepare', async (req, res) => {
   if (!validation.ok) return res.status(validation.status).json({ status: 'rejected', code: validation.code, message: validation.message });
   try {
     await cleanupExpiredCaptchaSessions();
+    if (captchaSessions.size > 0) {
+      const earliestExpiry = Math.min(...[...captchaSessions.values()].map(session => session.expiresAt));
+      return res.status(409).json({
+        status: 'waiting',
+        code: 'OFFICIAL_QUEUE_BUSY',
+        message: '環境部填單通道正在處理前一筆送件',
+        retryAfterSeconds: Math.max(15, Math.min(60, Math.ceil((earliestExpiry - Date.now()) / 1000)))
+      });
+    }
+    if (Date.now() < officialPrepareBlockedUntil) {
+      return res.status(429).json({
+        status: 'waiting',
+        code: 'OFFICIAL_TEMPORARILY_BUSY',
+        message: '環境部填單頁面暫時無法完成，系統將稍後重試',
+        retryAfterSeconds: retryAfterSeconds()
+      });
+    }
     const session = await createOfficialBrowserSession(validation.packet);
+    clearTransientPrepareFailure();
     const captchaImage = session.captchaRequired ? await captureCaptchaImage(session.page) : '';
     const diagnosticScreenshot = DIAGNOSTIC_SCREENSHOT_ENABLED && req.body?.diagnosticScreenshotRequested === true
       ? await captureDiagnosticScreenshot(session.page)
@@ -1028,6 +1066,19 @@ app.post('/prepare', async (req, res) => {
     });
   } catch (error) {
     const code = error.code || 'RUNNER_FAILED';
+    const stage = error.stage || 'unknown';
+    const transient = stage === 'pollution-cause' && (code === 'OFFICIAL_SELECTOR_CHANGED' || code === 'OFFICIAL_OPTION_CHANGED');
+    if (transient) {
+      const seconds = markTransientPrepareFailure();
+      console.warn(JSON.stringify({ event: 'official_prepare_busy', code, stage, retryAfterSeconds: seconds }));
+      return res.status(429).json({
+        status: 'waiting',
+        code: 'OFFICIAL_TEMPORARILY_BUSY',
+        stage,
+        message: '環境部填單頁面暫時無法完成，系統將稍後重試',
+        retryAfterSeconds: seconds
+      });
+    }
     let statusRecorded = false;
     let statusRecordError = '';
     try {
@@ -1037,11 +1088,11 @@ app.post('/prepare', async (req, res) => {
       statusRecordError = recordError.code || 'RECORD_UPSTREAM_FAILED';
       console.warn(JSON.stringify({ event: 'official_status_writeback_error', code: statusRecordError }));
     }
-    console.warn(JSON.stringify({ event: 'official_prepare_error', code, stage: error.stage || 'unknown' }));
+    console.warn(JSON.stringify({ event: 'official_prepare_error', code, stage }));
     const result = {
       status: 'manual_required',
       code,
-      stage: error.stage || 'unknown',
+      stage,
       message: '環境部表單無法準備，請改用人工流程',
       statusRecorded,
       statusRecordError

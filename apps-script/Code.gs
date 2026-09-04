@@ -57,8 +57,20 @@ function doPost(event) {
     const headers = ensureHeaders_(sheet);
     const record = buildRecord_(payload, new Date());
     const row = headers.map(header => Object.prototype.hasOwnProperty.call(record, header) ? record[header] : '');
-    sheet.getRange(sheet.getLastRow() + 1, 1, 1, headers.length).setValues([row]);
-    return jsonResponse_({ ok: true });
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      const idColumn = headers.indexOf('紀錄ID') + 1;
+      const rowCount = sheet.getLastRow() - 1;
+      const match = record['紀錄ID'] && rowCount > 0
+        ? sheet.getRange(2, idColumn, rowCount, 1).createTextFinder(record['紀錄ID']).matchEntireCell(true).findNext()
+        : null;
+      const rowNumber = match ? match.getRow() : sheet.getLastRow() + 1;
+      sheet.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
+      return jsonResponse_({ ok: true, updated: Boolean(match) });
+    } finally {
+      lock.releaseLock();
+    }
   } catch (error) {
     return jsonResponse_({ ok: false, error: String(error && error.message ? error.message : error) });
   }
@@ -73,6 +85,7 @@ function doGet() {
     const headers = values[0].map(String);
     const records = values.slice(1)
       .filter(row => row.some(value => value !== '' && value !== null))
+      .filter(row => isPublicRecordRow_(headers, row))
       .map(row => publicRecordFromRow_(headers, row));
     return jsonResponse_({ records });
   } catch (error) {
@@ -104,6 +117,7 @@ function buildRecord_(payload, recordedAt) {
   const weather = payload.weatherInfo || {};
   const suspectedWeather = payload.weatherInfo_suspect || {};
   const complaint = complaintForStorage_(payload.complaint || {});
+  const officialStatus = normaliseInitialOfficialStatus_(payload.officialSubmissionStatus);
   return {
     '紀錄ID': normaliseRecordId_(payload.recordId, false),
     '紀錄時間': recordedAt,
@@ -125,8 +139,8 @@ function buildRecord_(payload, recordedAt) {
     // Keep a readable legacy note while the JSON column is the source of truth.
     '備註': valueOrBlank_(complaint.description),
     '通報資料JSON': JSON.stringify(complaint),
-    '環境部送出狀態': normaliseInitialOfficialStatus_(payload.officialSubmissionStatus),
-    '環境部送出時間': ''
+    '環境部送出狀態': officialStatus,
+    '環境部送出時間': OFFICIAL_SENT_STATUSES.has(officialStatus) ? recordedAt : ''
   };
 }
 
@@ -156,7 +170,15 @@ function updateOfficialSubmission_(payload, submittedAt) {
 }
 
 function normaliseInitialOfficialStatus_(value) {
-  return String(value || '').trim() === 'official_pending' ? 'official_pending' : 'platform_only';
+  const status = String(value || '').trim();
+  return OFFICIAL_WORKFLOW_STATUSES.has(status) ? status : 'platform_only';
+}
+
+function isPublicRecordRow_(headers, row) {
+  const statusIndex = headers.indexOf('環境部送出狀態');
+  if (statusIndex < 0) return true;
+  const status = String(row[statusIndex] || '').trim();
+  return status === '' || status === 'platform_only' || OFFICIAL_SENT_STATUSES.has(status);
 }
 
 function normaliseRecordId_(value, required) {
