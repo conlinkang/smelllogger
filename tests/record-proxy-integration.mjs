@@ -32,6 +32,19 @@ const runnerPort = await listen(runner);
 const recordUrl = `http://127.0.0.1:${runnerPort}/record`;
 
 try {
+  for (const origin of ['', 'https://untrusted.example']) {
+    const denied = await fetch(recordUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...(origin ? { Origin: origin } : {}) },
+      body: '{invalid-json'
+    });
+    assert.equal(denied.status, 403, 'Reject disallowed origin before parsing');
+  }
+  const voice = await fetch(`http://127.0.0.1:${runnerPort}/analyze-voice`, {
+    method: 'POST', headers: { Origin: 'https://conlinkang.github.io', 'Content-Type': 'application/json' }, body: '{}'
+  });
+  assert.equal(voice.status, 503);
+  assert.equal((await voice.json()).code, 'VOICE_DISABLED');
+  assert.equal(upstreamPayloads.length, 0);
   const platformResponse = await fetch(recordUrl, {
     method: 'POST',
     headers: {

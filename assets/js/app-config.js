@@ -1,7 +1,7 @@
 // Public runtime configuration. Do not commit private API keys here.
 window.APP_CONFIG = Object.freeze({
   // Use a Google Maps browser key restricted by HTTP referrers and API scope.
-  googleMapsApiKey: 'AIzaSyDanmWlmu2ecmlLrHzoBtX_lGlJjr8rIWI',
+  googleMapsApiKey: 'AIzaSyDHHqUcjEyFJEy9nhH9GdjzyODeNZi2Bb4',
   recordEndpoint: 'https://smelllogger-runner-442879625893.asia-east1.run.app/record',
   recordMode: 'cors',
   analysisEndpoint: 'https://script.google.com/macros/s/AKfycbxOgCXGmBCrAzEDxld8DQtK7s1yO7f4q5owC-B5pGMiJ-uRN2HY4sZZPvMwScgnlP8/exec',
@@ -13,7 +13,8 @@ window.APP_CONFIG = Object.freeze({
   officialFinalConfirmationText: '我確認以本人資料正式陳情',
   officialSubmissionTimeoutMs: 60000,
   // Cloud Run voice endpoint. Audio is sent only after the user starts recording.
-  voiceAnalysisEndpoint: 'https://smelllogger-runner-442879625893.asia-east1.run.app/analyze-voice',
+  // Temporarily disabled until verified-client abuse protection is deployed.
+  voiceAnalysisEndpoint: '',
   voiceMaxSeconds: 15,
   // Optional OpenWeatherMap key. If empty, weather-client.js uses Open-Meteo.
   weatherProvider: 'openweathermap',

@@ -30,7 +30,6 @@ export function isOfficialSubmitEnabled(value = process.env.OFFICIAL_SUBMIT_ENAB
 const OFFICIAL_SUBMIT_ENABLED = isOfficialSubmitEnabled();
 
 app.disable('x-powered-by');
-app.use(express.json({ limit: MAX_BODY_BYTES }));
 
 function noStore(res) {
   res.set('Cache-Control', 'no-store');
@@ -49,7 +48,8 @@ function configureCors(req, res) {
   if (req.method === 'OPTIONS') {
     return Boolean(allowedOrigin && origin === allowedOrigin);
   }
-  return true;
+  // CORS alone does not reject requests. This is defense-in-depth, not authentication.
+  return req.method === 'GET' || Boolean(allowedOrigin && origin === allowedOrigin);
 }
 
 app.use((req, res, next) => {
@@ -79,6 +79,31 @@ function rateLimit(req, res, next) {
 }
 
 app.use(['/record', '/submit', '/prepare', '/finalize', '/analyze-voice'], rateLimit);
+// Limit across all clients before parsing costly bodies. Process-local only;
+// cloud quotas and verified-client authentication are separate protections.
+let globalWindow = { startedAt: 0, count: 0 };
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  if (req.method !== 'POST') return next();
+  const now = Date.now();
+  if (now - globalWindow.startedAt >= 60_000) globalWindow = { startedAt: now, count: 0 };
+  if (++globalWindow.count > 30) {
+    res.set('Retry-After', '60');
+    return res.status(429).json({ status: 'rejected', code: 'RATE_LIMITED' });
+  }
+  if (req.path === '/analyze-voice' && process.env.VOICE_ENABLED !== 'true') {
+    return res.status(503).json({ status: 'manual_required', code: 'VOICE_DISABLED', message: '語音服務安全維護中，請使用文字快速選項' });
+  }
+  next();
+});
+app.use(express.json({ limit: MAX_BODY_BYTES, inflate: false }));
+const rateCleanup = setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of rateBuckets) {
+    if (now - bucket.startedAt >= 60_000) rateBuckets.delete(key);
+  }
+}, 60_000);
+rateCleanup.unref();
 
 function text(value, maxLength = 500) {
   return String(value == null ? '' : value)
@@ -939,7 +964,7 @@ const healthHandler = (req, res) => {
     captchaMaxAttempts: MAX_CAPTCHA_ATTEMPTS,
     diagnosticScreenshotEnabled: DIAGNOSTIC_SCREENSHOT_ENABLED,
     recordProxyConfigured: Boolean(RECORD_UPSTREAM_URL),
-    voiceConfigured: Boolean(process.env.GOOGLE_CLOUD_PROJECT)
+    voiceConfigured: process.env.VOICE_ENABLED === 'true' && Boolean(process.env.GOOGLE_CLOUD_PROJECT)
   });
 };
 
